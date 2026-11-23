@@ -17,8 +17,8 @@ export class Engine {
     const mobile = matchMedia('(pointer: coarse)').matches;
     this.level = level === 'auto' ? (mobile ? 'medium' : 'high') : level;
     this.quality = QUALITY[this.level];
-    const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.aa, powerPreference: 'high-performance', alpha: true });
-    r.setClearColor(0x000000, 0);
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.aa, powerPreference: 'high-performance', alpha: false });
+    r.setClearColor(0x0e1420, 1); // opak tuval: iPhone'da ekran birleştirme maliyeti yok
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.7;
     r.shadowMap.enabled = this.quality.shadows > 0; r.shadowMap.type = THREE.PCFShadowMap;
@@ -53,9 +53,10 @@ export class Engine {
       const fps = this.fpsN * 1000 / (now - this.fpsT0); this.fpsT0 = now; this.fpsN = 0;
       this.lastFps = fps;
       const cap = Math.min(devicePixelRatio || 1, this.quality.pr);
-      if (fps < 45 && this.pr > 0.75) { if (this.raised) this.prLocked = true; this.pr = Math.max(0.75, this.pr - 0.25); this.resize(); this.goodN = 0; }
+      if (now - (this.lastChange || 0) < 8000) return; // çözünürlüğü sık değiştirme (her değişim kısa bir takılma yapar)
+      if (fps < 45 && this.pr > 0.75) { this.lastChange = now; if (this.raised) this.prLocked = true; this.pr = Math.max(0.75, this.pr - 0.25); this.resize(); this.goodN = 0; }
       // akıcıysa netliği geri yükselt (iki ölçüm üst üste iyi olmalı; iniş-çıkış olursa kilitlenir)
-      else if (fps >= 56 && !this.prLocked && this.pr < cap) { this.goodN = (this.goodN || 0) + 1; if (this.goodN >= 2) { this.pr = Math.min(cap, this.pr + 0.25); this.raised = true; this.goodN = 0; this.resize(); } }
+      else if (fps >= 56 && !this.prLocked && this.pr < cap) { this.goodN = (this.goodN || 0) + 1; if (this.goodN >= 2) { this.lastChange = now; this.pr = Math.min(cap, this.pr + 0.25); this.raised = true; this.goodN = 0; this.resize(); } }
       else this.goodN = 0;
       if (fps < 38 && this.pr <= 0.75 && this.onSlow) { this.slowN = (this.slowN || 0) + 1; this.onSlow(this.slowN); }
     }

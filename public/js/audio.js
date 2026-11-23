@@ -29,7 +29,7 @@ function tone(freq, dur, type = 'sine', vol = 0.3, slide = 0, delay = 0) {
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
   o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
 }
-let lastStar = 0;
+let lastStar = 0, siren = null;
 export const sfx = {
   star: () => { const n = performance.now(); if (n - lastStar < 45) return; lastStar = n; play('coin2', 0.32, 0.97 + Math.random() * 0.08) || tone(1300, 0.12, 'sine', 0.15, 1.5); },
   diamond: () => play('diamond', 0.8) || tone(1320, 0.25, 'triangle', 0.2),
@@ -46,6 +46,11 @@ export const sfx = {
   buy: () => play('powerup', 0.6) || tone(990, 0.2, 'square', 0.12),
   horn: () => play('horn', 0.9) || tone(440, 0.3, 'square', 0.2),
   tires: () => play('tires', 0.25, 0.9 + Math.random() * 0.2),
+  nearMiss: () => { play('tires', 0.18, 1.3); tone(900, 0.18, 'triangle', 0.12, 1.8); },
+  shock: () => { play('crash2', 0.6, 0.6); tone(60, 0.7, 'sine', 0.5, 0.5); tone(220, 0.5, 'sawtooth', 0.12, 0.3); return true; },
+  sirenStart: () => { if (!ctx || siren) return; const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'square'; o.frequency.value = 700; g.gain.value = 0; const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1800; o.connect(f); f.connect(g); g.connect(master); o.start(); siren = { o, g, t0: ctx.currentTime }; },
+  sirenSet: (v) => { if (!siren) return; const t = ctx.currentTime, ph = Math.floor((t - siren.t0) / 0.45) % 2; siren.o.frequency.setTargetAtTime(ph ? 960 : 680, t, 0.04); siren.g.gain.setTargetAtTime(0.06 * v, t, 0.1); },
+  sirenStop: () => { if (!siren) return; try { siren.g.gain.setTargetAtTime(0, ctx.currentTime, 0.05); siren.o.stop(ctx.currentTime + 0.3); } catch {} siren = null; },
 };
 
 // Motor: 4 farklı devir kaydı (900 / 2500 / 4500 / 6800 dev/dk) + vites kutusu benzetimi.

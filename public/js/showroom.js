@@ -3,12 +3,15 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { buildCar, loadModel } from './cars.js';
 import { applyMods, animateMods } from './mods.js';
+import { assetURL } from './assets.js';
 
 export class Showroom {
   constructor(engine) {
     this.engine = engine;
     const s = this.scene = new THREE.Scene();
-    s.background = null; // arka plan: CSS'teki köy fotoğrafı
+    // arka plan: köy fotoğrafı (opak tuvalde 'cover' kırpma ile)
+    this.bg = new THREE.TextureLoader().load(assetURL('img/village-bg.jpg'), (t) => { t.colorSpace = THREE.SRGBColorSpace; this.fitBg(); });
+    this.bg.colorSpace = THREE.SRGBColorSpace; s.background = this.bg; s.backgroundIntensity = 1;
     const pm = new THREE.PMREMGenerator(engine.renderer);
     s.environment = pm.fromScene(new RoomEnvironment(), 0.03).texture; s.environmentIntensity = 0.7; pm.dispose();
     this.camera = new THREE.PerspectiveCamera(35, engine.aspect, 0.1, 200);
@@ -70,7 +73,14 @@ export class Showroom {
   focus(f) { if (!f) return; const a0 = 0.35; let r = a0 - f.phi; while (r - this.rot > Math.PI) r -= Math.PI * 2; while (r - this.rot < -Math.PI) r += Math.PI * 2; this.target = { rot: r, el: f.el, zoom: f.zoom }; this.auto = false; this.idleT = 0; }
   resetView() { this.target = { rot: this.rot, el: 0.28, zoom: 1 }; this.auto = true; }
 
+  fitBg() {
+    const img = this.bg?.image; if (!img) return;
+    const cv = this.engine.renderer.domElement, sa = (cv.clientWidth || innerWidth) / (cv.clientHeight || innerHeight), ia = img.width / img.height;
+    if (sa > ia) { this.bg.repeat.set(1, ia / sa); this.bg.offset.set(0, (1 - ia / sa) * 0.6); } else { this.bg.repeat.set(sa / ia, 1); this.bg.offset.set((1 - sa / ia) / 2, 0); }
+    this._bgA = sa;
+  }
   update(dt) {
+    { const cv = this.engine.renderer.domElement, sa = (cv.clientWidth || 1) / (cv.clientHeight || 1); if (sa !== this._bgA) this.fitBg(); }
     this.t += dt; this.idleT += dt;
     if (this.target) {
       const k = 1 - Math.exp(-dt * 4);

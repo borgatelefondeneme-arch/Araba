@@ -9,6 +9,7 @@ import { sfx, engineStart, engineSet, engineStop } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const G = 30;
+const _tp = new THREE.Vector3();
 
 export class Race {
   constructor(engine, opts) {
@@ -56,6 +57,15 @@ export class Race {
     this.nitro = 0.35; this.nitroT = 0; this.magnetT = 0; this.shieldT = 0; this.invT = 0; this.shake = 0; this.endT = 0;
     this.camPos = new THREE.Vector3(0, 4, 9); this.camLook = new THREE.Vector3();
     this.remotes = new Map(); this.sendT = 0;
+    // yeni oyun döngüsü
+    this.mode = this.mp ? 'mp' : (level.mode || 'race');
+    this.steerMode = opts.steerMode || 'free'; this.tx = 0; this.keyDir = 0;
+    this.score = 0; this.combo = 0; this.comboT = 0; this.shock = 0.3; this.boostT = 0; this.trick = null; this.nearMisses = 0;
+    this.rivals = []; this.police = []; this.finishedOrder = [];
+    if (this.mode === 'race') this.makeRivals(opts.rivals || []);
+    if (this.mode === 'police') { this.makePolice(); this.maxHearts = Math.max(3, this.maxHearts); this.hearts = this.maxHearts; }
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color: 0x80d8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.4; ring.visible = false; this.scene.add(ring); this.ring = ring; this.ringT = 0;
     if (this.mp) for (const p of opts.players || []) if (p.id !== opts.myId) this.addRemote(p);
 
     // takılma olursa kaliteyi kendiliğinden düşür
@@ -88,47 +98,58 @@ export class Race {
   // ---------- Kontroller ----------
   bindInput() {
     const el = $('touch');
-    let sx = 0, sy = 0, st = 0, used = false;
-    this.onTS = (e) => { const t = e.changedTouches ? e.changedTouches[0] : e; sx = t.clientX; sy = t.clientY; st = performance.now(); used = false; };
+    let sx = 0, sy = 0, st = 0, used = false, startTx = 0, vUsed = false, lx = 0, lt = 0;
+    const roadW = 10.6;
+    this.onTS = (e) => { const t = e.changedTouches ? e.changedTouches[0] : e; sx = lx = t.clientX; sy = t.clientY; st = lt = performance.now(); used = false; vUsed = false; startTx = this.tx; };
     this.onTM = (e) => {
-      if (used) return; const t = e.changedTouches ? e.changedTouches[0] : e;
+      const t = e.changedTouches ? e.changedTouches[0] : e;
       if (e.type === 'mousemove' && !(e.buttons & 1)) return;
-      const dx = t.clientX - sx, dy = t.clientY - sy, th = Math.min(innerWidth, innerHeight) * 0.06;
-      if (Math.abs(dx) > th || Math.abs(dy) > th) {
-        used = true;
-        if (Math.abs(dx) > Math.abs(dy)) this.steer(dx > 0 ? 1 : -1); else if (dy < 0) this.jump(); else this.useNitro();
-      }
       if (e.cancelable) e.preventDefault();
+      const dx = t.clientX - sx, dy = t.clientY - sy, th = Math.min(innerWidth, innerHeight) * 0.06;
+      const now = performance.now(), vx = (t.clientX - lx) / Math.max(1, now - lt); lx = t.clientX; lt = now;
+      // havadayken hızlı yatay fiske = takla
+      if (this.y > 0.6 && Math.abs(vx) > 1.2 && !this.trick) this.doTrick(Math.sign(vx));
+      // dikey fiske: yukarı = zıpla, aşağı = nitro
+      if (!vUsed && Math.abs(dy) > th * 1.3 && Math.abs(dy) > Math.abs(dx) * 1.6) { vUsed = true; if (dy < 0) this.jump(); else this.useNitro(); return; }
+      if (this.steerMode === 'free') { if (!vUsed) this.tx = THREE.MathUtils.clamp(startTx + dx * roadW / (Math.min(innerWidth, 900) * 0.75), -5.1, 5.1); }
+      else if (!used && Math.abs(dx) > th && Math.abs(dx) > Math.abs(dy)) { used = true; this.steer(dx > 0 ? 1 : -1); }
     };
     this.onTE = (e) => {
-      if (used) return; const t = e.changedTouches ? e.changedTouches[0] : e;
-      if (performance.now() - st < 350) this.steer(t.clientX < innerWidth / 2 ? -1 : 1);
+      const t = e.changedTouches ? e.changedTouches[0] : e;
+      if (this.steerMode === 'lane' && !used && !vUsed && performance.now() - st < 350) this.steer(t.clientX < innerWidth / 2 ? -1 : 1);
     };
     this.onKey = (e) => {
-      if (e.repeat) return;
-      const k = e.key.toLowerCase();
-      if (k === 'arrowleft' || k === 'a') this.steer(-1);
-      else if (k === 'arrowright' || k === 'd') this.steer(1);
-      else if (k === 'arrowup' || k === 'w' || k === ' ') this.jump();
+      const k = e.key.toLowerCase(), down = e.type === 'keydown';
+      if (k === 'arrowleft' || k === 'a' || k === 'arrowright' || k === 'd') {
+        const dir = (k === 'arrowleft' || k === 'a') ? -1 : 1;
+        if (this.steerMode === 'lane') { if (down && !e.repeat) { if (this.y > 0.6) this.doTrick(dir); else this.steer(dir); } }
+        else { if (down) { this.keyDir = dir; if (this.y > 0.6 && !e.repeat) this.doTrick(dir); } else if (this.keyDir === dir) this.keyDir = 0; }
+        return;
+      }
+      if (!down || e.repeat) return;
+      if (k === 'arrowup' || k === 'w' || k === ' ') this.jump();
       else if (k === 'arrowdown' || k === 's' || k === 'shift') this.useNitro();
+      else if (k === 'q' || k === 'e') this.useShock();
       else if (k === 'escape' || k === 'p') this.o.onPause?.();
     };
     el.addEventListener('touchstart', this.onTS, { passive: true }); el.addEventListener('touchmove', this.onTM, { passive: false }); el.addEventListener('touchend', this.onTE);
     el.addEventListener('mousedown', this.onTS); el.addEventListener('mousemove', this.onTM); el.addEventListener('mouseup', this.onTE);
-    addEventListener('keydown', this.onKey);
+    addEventListener('keydown', this.onKey); addEventListener('keyup', this.onKey);
     this.onNitroBtn = (e) => { e.stopPropagation(); e.preventDefault(); this.useNitro(); };
     $('nitro-btn').addEventListener('pointerdown', this.onNitroBtn);
+    this.onShockBtn = (e) => { e.stopPropagation(); e.preventDefault(); this.useShock(); };
+    $('shock-btn').addEventListener('pointerdown', this.onShockBtn);
   }
   unbindInput() {
     const el = $('touch');
     el.removeEventListener('touchstart', this.onTS); el.removeEventListener('touchmove', this.onTM); el.removeEventListener('touchend', this.onTE);
     el.removeEventListener('mousedown', this.onTS); el.removeEventListener('mousemove', this.onTM); el.removeEventListener('mouseup', this.onTE);
-    removeEventListener('keydown', this.onKey); $('nitro-btn').removeEventListener('pointerdown', this.onNitroBtn);
+    removeEventListener('keydown', this.onKey); removeEventListener('keyup', this.onKey); $('nitro-btn').removeEventListener('pointerdown', this.onNitroBtn); $('shock-btn').removeEventListener('pointerdown', this.onShockBtn);
   }
   steer(dir) {
     if (this.state !== 'run') return;
     const nl = Math.max(0, Math.min(2, this.lane + dir));
-    if (nl !== this.lane) { this.prevLane = this.lane; this.lane = nl; if (this.speed > 20 && Math.random() < 0.6) sfx.tires(); }
+    if (nl !== this.lane) { this.prevLane = this.lane; this.lane = nl; this.tx = ROAD.lanes[nl]; if (this.speed > 20 && Math.random() < 0.6) sfx.tires(); }
   }
   jump() { if (this.state !== 'run' || this.y > 0.05 || this.onRamp) return; this.vy = 9.5; sfx.jump(); }
   useNitro() {
@@ -140,27 +161,34 @@ export class Race {
   hudInit() {
     $('hud').classList.remove('hidden'); $('touch').classList.remove('hidden');
     $('hud-level').textContent = this.mp ? 'Birlikte Yarış' : `Bölüm ${this.level.n}`;
-    $('hud-hearts').classList.toggle('hidden', this.mp);
+    $('hud-hearts').classList.toggle('hidden', this.mp || this.mode === 'race');
     $('countdown').textContent = ''; this.hudMarkers(); this.hudT = 0;
     $('hud-pause').classList.toggle('hidden', this.mp);
+    $('hud-rank').classList.toggle('hidden', this.mode === 'mp'); $('hud-rank').textContent = '';
   }
   hudMarkers() {
     const box = $('hud-markers'); box.innerHTML = '';
     for (const r of this.remotes.values()) { const m = document.createElement('div'); m.className = 'marker'; m.style.background = r.color; m.title = r.name; m.id = 'mk-' + r.id; box.appendChild(m); }
     const me = document.createElement('div'); me.className = 'marker me'; me.id = 'mk-me'; me.style.background = this.o.color; box.appendChild(me);
   }
+  setT(id, v) { this._hc ||= {}; if (this._hc[id] === v) return; this._hc[id] = v; $(id).textContent = v; } // sadece değişince yaz
   hud(dt) {
-    this.hudT -= dt; if (this.hudT > 0) return; this.hudT = 0.08;
-    $('hud-stars').textContent = this.starsGot; $('hud-diamonds').textContent = this.diamondsGot;
-    $('hud-speed').textContent = Math.round(this.speed * 3.6);
-    $('hud-hearts').textContent = '❤️'.repeat(this.hearts) + '🖤'.repeat(Math.max(0, this.maxHearts - this.hearts));
+    this.hudT -= dt; if (this.hudT > 0) return; this.hudT = 0.1;
+    this.setT('hud-stars', this.starsGot); this.setT('hud-diamonds', this.diamondsGot);
+    this.setT('hud-speed', Math.round(this.speed * 3.6));
+    this.setT('hud-hearts', '❤️'.repeat(Math.max(0, this.hearts)) + '🖤'.repeat(Math.max(0, this.maxHearts - this.hearts)));
     const p = Math.min(1, this.dist / this.level.length);
-    $('hud-bar').style.width = (p * 100) + '%'; $('mk-me').style.left = (p * 100) + '%';
+    $('hud-bar').style.transform = `scaleX(${p})`; $('mk-me').style.left = (p * 100) + '%';
     for (const r of this.remotes.values()) { const m = $('mk-' + r.id); if (m) m.style.left = Math.min(100, r.rd / this.level.length * 100) + '%'; }
     const nb = $('nitro-btn'); nb.style.setProperty('--fill', (this.nitroT > 0 ? this.nitroT / this.nitroDur : Math.min(1, this.nitro)) * 100 + '%');
     nb.classList.toggle('ready', this.nitro >= 1 && this.nitroT <= 0); nb.classList.toggle('active', this.nitroT > 0);
     let pw = ''; if (this.magnetT > 0) pw += `<span>🧲 ${Math.ceil(this.magnetT)}</span>`; if (this.shieldT > 0) pw += `<span>🛡️ ${Math.ceil(this.shieldT)}</span>`;
-    $('hud-power').innerHTML = pw;
+    if (pw !== this._pw) { this._pw = pw; $('hud-power').innerHTML = pw; }
+    // sıra / polis mesafesi, puan, kombo, şok
+    if (this.mode === 'race') { const rank = 1 + this.rivals.filter(a => a.d > this.dist).length; this.setT('hud-rank', `${rank}/${this.rivals.length + 1}`); $('hud-rank').classList.toggle('first', rank === 1); }
+    else if (this.mode === 'police') { this.setT('hud-rank', `🚓 ${Math.max(0, Math.round(this.policeGap || 0))} m`); $('hud-rank').classList.toggle('danger', (this.policeGap || 99) < 25); }
+    this.setT('hud-score', this.score); this.setT('hud-combo', this.combo > 1 ? `x${this.combo}` : '');
+    const sb = $('shock-btn'); sb.style.setProperty('--fill', Math.min(1, this.shock) * 100 + '%'); sb.classList.toggle('ready', this.shock >= 1);
   }
   flash(color) { const f = $('flash'); f.style.background = color; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
   popText(txt) { const el = $('pop'); el.textContent = txt; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
@@ -180,14 +208,17 @@ export class Race {
     // hız
     const prog = this.dist / this.level.length;
     let target = this.level.speed + (st.speed - 1) * 1.1 + prog * 5;
+    this.baseSpeed = target;
     if (this.nitroT > 0) target *= 1.5;
+    if (this.boostT > 0) { this.boostT -= dt; target *= 1.3; }
     if (!running) target = this.state === 'finish' ? 8 : this.state === 'crashed' ? 0 : 0;
     const acc = this.speed < target ? (this.state === 'run' ? 0.9 + st.speed * 0.05 : 2) : 2.5;
     this.speed += (target - this.speed) * Math.min(1, dt * acc);
     if (this.state === 'crashed') this.speed *= Math.pow(0.02, dt);
     this.dist += this.speed * dt;
     // yatay
-    const tx = ROAD.lanes[this.lane], k = 7 + st.handling * 0.9;
+    if (this.keyDir && this.state === 'run') this.tx = THREE.MathUtils.clamp(this.tx + this.keyDir * (8 + st.handling) * dt, -5.1, 5.1);
+    const tx = this.steerMode === 'lane' ? ROAD.lanes[this.lane] : this.tx, k = 7 + st.handling * 0.9;
     const px = this.x; this.x += (tx - this.x) * (1 - Math.exp(-k * dt));
     const vx = (this.x - px) / Math.max(dt, 1e-4);
     // dikey (zıplama ve rampa)
@@ -200,6 +231,9 @@ export class Race {
     // içerik ve çarpışma
     this.track.update(this.dist, dt, this.time);
     if (running) this.collide();
+    this.updateAI(dt, running);
+    if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
+    if (this.ringT > 0) { this.ringT -= dt; const k2 = 1 - this.ringT / 0.7; this.ring.scale.setScalar(2 + k2 * 45); this.ring.material.opacity = 0.8 * (1 - k2); this.ring.position.set(this.x, 0.4, -this.dist); if (this.ringT <= 0) this.ring.visible = false; }
     this.track.writeStars();
     if (running && this.dist >= this.level.length) this.finish();
     if (this.state === 'finish' || this.state === 'crashed') { this.endT += dt; if (this.endT > 2.2 && !this.ended) { this.ended = true; this.o.onEnd?.(this.result()); } }
@@ -207,7 +241,9 @@ export class Race {
     const c = this.car; c.position.set(this.x, this.y, -this.dist);
     this.roll = THREE.MathUtils.lerp(this.roll || 0, vx * 0.012, 0.2);
     const pitch = this.onRamp ? 0.18 : (this.y > 0.05 ? THREE.MathUtils.clamp(this.vy * 0.015, -0.12, 0.12) : Math.sin(this.time * 30) * 0.002 * this.speed / 30);
-    c.rotation.set(pitch, -vx * 0.035, this.roll);
+    let trickA = 0;
+    if (this.trick) { this.trick.t += dt; const k3 = Math.min(1, this.trick.t / 0.6); trickA = this.trick.dir * k3 * Math.PI * 2; if (k3 >= 1) { this.trick.done = true; } }
+    c.rotation.set(pitch, -vx * 0.035, this.roll - trickA);
     spinWheels(c, this.dist); animateMods(c, this.time);
     c.visible = !(this.invT > 0 && Math.floor(this.time * 12) % 2 === 0);
     for (const f of this.flames) { f.visible = this.nitroT > 0; f.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
@@ -242,7 +278,7 @@ export class Race {
     }
     if (this.y > 0 || this.vy > 0) {
       this.vy -= G * dt; this.y += this.vy * dt;
-      if (this.y <= 0) { if (this.vy < -8) { sfx.land(); this.shake = 0.25; } this.y = 0; this.vy = 0; }
+      if (this.y <= 0) { if (this.vy < -8) { sfx.land(); this.shake = 0.25; } this.y = 0; this.vy = 0; if (this.trick) { if (this.trick.done) { this.addScore(150, 'TAKLA! 🤸 +150'); this.shock = Math.min(1, this.shock + 0.25); this.nitro = Math.min(1, this.nitro + 0.2); } this.trick = null; } }
     }
   }
 
@@ -252,13 +288,17 @@ export class Race {
       if (!e.alive) continue;
       const dz = e.z - dist;
       if (e.kind === 'star' || e.kind === 'diamond' || e.kind === 'magnet' || e.kind === 'nitro' || e.kind === 'shield') {
-        if (magnetR && (e.kind === 'star' || e.kind === 'diamond') && dz < magnetR && dz > -3) { e.magnet = { x: this.x, y: this.y }; e.z += (dist - e.z) * Math.min(1, 0.016 * 14); }
+        if (magnetR && (e.kind === 'star' || e.kind === 'diamond') && dz < magnetR && dz > -3) { (e.magnet ||= { x: 0, y: 0 }); e.magnet.x = this.x; e.magnet.y = this.y; e.z += (dist - e.z) * Math.min(1, 0.016 * 14); }
         const ey = e.obj ? e.obj.position.y : (e.y || 1);
         if (Math.abs(dz) < this.halfL + 0.6 && Math.abs((e.obj ? e.obj.position.x : e.x) - this.x) < this.halfW + 0.6 && Math.abs(ey - (this.y + 0.9)) < 1.6) this.collect(e);
         continue;
       }
+      if (e.kind === 'boost') { if (!e.used && Math.abs(dz) < 4.5 && Math.abs(e.x - this.x) < 1.7 && this.y < 0.5) { e.used = true; this.boostT = 1.6; sfx.power(); this.popText('HIZ! ⚡'); this.shake = 0.15; } continue; }
+      if (e.kind === 'crates') { if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h) { this.knock(e, Math.sign(e.x - this.x) || 1); sfx.bump(); this.speed *= 0.96; this.shake = 0.2; this.addScore(25, 'KUTU! +25'); this.shock = Math.min(1, this.shock + 0.05); } continue; }
       if (e.kind === 'obst' || e.kind === 'traffic') {
-        if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h - 0.05) this.hit(e, dz);
+        if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h - 0.05) { this.hit(e, dz); continue; }
+        // kıl payı: yanından çok yakın geçince
+        if (e.kind === 'traffic' && !e.nm && dz < -(e.hl * 0.5)) { e.nm = true; if (Math.abs(e.x - this.x) < e.hw + this.halfW + 1.1 && this.y < e.h) this.nearMiss(); }
       }
     }
   }
@@ -284,23 +324,127 @@ export class Race {
     }
     if (this.invT > 0) return;
     // yandan sürtünme: önceki şeride geri sek
-    const sideways = Math.abs(dz) > (e.hl + this.halfL) * 0.45 && this.prevLane !== this.lane;
-    if (sideways) { this.lane = this.prevLane; this.speed *= 0.85; sfx.bump(); this.shake = 0.3; this.flash('rgba(255,180,0,0.35)'); this.invT = 0.4; return; }
+    const sideways = Math.abs(dz) > (e.hl + this.halfL) * 0.45 && (this.steerMode === 'free' || this.prevLane !== this.lane);
+    if (sideways && this.steerMode === 'free') { const sgn = Math.sign(this.x - e.x) || 1; this.x = e.x + sgn * (e.hw + this.halfW * 0.8 + 0.25); this.tx = THREE.MathUtils.clamp(this.x + sgn * 0.6, -5.1, 5.1); this.speed *= 0.88; sfx.bump(); this.shake = 0.3; this.flash('rgba(255,180,0,0.35)'); this.invT = 0.4; return; }
+    if (sideways) { this.lane = this.prevLane; this.tx = ROAD.lanes[this.lane]; this.speed *= 0.85; sfx.bump(); this.shake = 0.3; this.flash('rgba(255,180,0,0.35)'); this.invT = 0.4; return; }
     this.crashes++; sfx.crash(); this.shake = 0.7; this.flash('rgba(255,40,40,0.55)'); this.knock(e, Math.sign(e.x - this.x) || 1);
-    if (this.mp) { this.speed *= 0.25; this.invT = 1.6; this.popText('ÇARPIŞMA! 💥'); return; }
+    if (this.mp || this.mode === 'race') { this.speed *= 0.25; this.invT = 1.6; this.popText('ÇARPIŞMA! 💥'); this.combo = 0; return; } // yarışta ceza: yavaşlama ve sıra kaybı
     this.hearts--;
     if (this.hearts <= 0) { this.state = 'crashed'; this.endT = 0; this.vy = 6; this.y = Math.max(this.y, 0.01); engineStop(); sfx.lose(); this.popText('KAZA! 💥'); }
     else { this.speed *= 0.3; this.invT = 2; this.popText(`${this.hearts} can kaldı`); }
   }
   finish() {
-    this.state = 'finish'; this.endT = 0; this.finishTime = this.runT || 0; sfx.win(); this.popText('BİTİŞ! 🏁');
+    this.place = 1 + this.rivals.filter(a => a.d >= this.level.length).length;
+    this.state = 'finish'; this.endT = 0; this.finishTime = this.runT || 0; sfx.win();
+    this.popText(this.mode === 'race' ? (this.place === 1 ? 'BİRİNCİSİN! 🏆' : `${this.place}. oldun 🏁`) : this.mode === 'police' ? 'KAÇTIN! 🚓💨' : 'BİTİŞ! 🏁');
     if (this.mp) this.o.net.send({ t: 'finish', time: +this.finishTime.toFixed(2), stars: this.starsGot });
   }
   result() {
     const ratio = this.track.totalStars ? this.starsGot / this.track.totalStars : 1;
     const success = this.state === 'finish';
-    const rating = !success ? 0 : (ratio >= 0.7 && this.crashes === 0) ? 3 : ratio >= 0.4 ? 2 : 1;
-    return { success, rating, stars: this.starsGot, diamonds: this.diamondsGot, total: this.track.totalStars, crashes: this.crashes, time: this.finishTime || this.time, dist: this.dist };
+    let rating = !success ? 0 : (ratio >= 0.7 && this.crashes === 0) ? 3 : ratio >= 0.4 ? 2 : 1;
+    if (success && this.mode === 'race') rating = this.place === 1 ? 3 : this.place === 2 ? 2 : 1;
+    if (success && this.mode === 'police') rating = this.hearts >= this.maxHearts ? 3 : this.hearts >= 2 ? 2 : 1;
+    return { success, rating, mode: this.mode, place: this.place, racers: this.rivals.length + 1, score: this.score, nearMisses: this.nearMisses, caught: this.caught, stars: this.starsGot, diamonds: this.diamondsGot, total: this.track.totalStars, crashes: this.crashes, time: this.finishTime || this.time, dist: this.dist };
+  }
+
+  // ---------- skor, kıl payı, takla, şok dalgası ----------
+  addScore(n, txt) { this.score += n; if (txt) this.popText(txt); }
+  nearMiss() {
+    this.combo = this.comboT > 0 ? this.combo + 1 : 1; this.comboT = 3; this.nearMisses++;
+    const pts = 50 * this.combo; this.addScore(pts, this.combo > 1 ? `KIL PAYI! x${this.combo} +${pts}` : `KIL PAYI! +${pts}`);
+    this.nitro = Math.min(1, this.nitro + 0.12); this.shock = Math.min(1, this.shock + 0.15); sfx.nearMiss?.();
+  }
+  doTrick(dir) { if (this.trick || this.y < 0.6 || this.state !== 'run') return; this.trick = { dir, t: 0, done: false }; sfx.jump(); }
+  useShock() {
+    if (this.state !== 'run' || this.shock < 1) return;
+    this.shock = 0; this.ringT = 0.7; this.ring.visible = true; this.shake = 0.5; this.flash('rgba(128,216,255,0.45)'); sfx.shock?.() || sfx.crash();
+    let n = 0;
+    for (const e of this.track.active) {
+      if (!e.alive || !(e.kind === 'obst' || e.kind === 'traffic' || e.kind === 'crates')) continue;
+      const dz = e.z - this.dist; if (dz > -8 && dz < 50) { this.knock(e, Math.sign(e.x - this.x) || 1); e.fly.vz = 8 + Math.random() * 6; e.fly.vy = 10 + Math.random() * 6; n++; }
+    }
+    for (const a of this.rivals) { const dz = a.d - this.dist; if (dz > -10 && dz < 40) { a.slowT = 1.8; a.spin = 1; } }
+    for (const p of this.police) p.d = Math.min(p.d, this.dist - 70);
+    this.addScore(20 * n, `ŞOK DALGASI! 💥 ${n ? '+' + 20 * n : ''}`);
+  }
+
+  // ---------- rakipler ve polis ----------
+  makeRivals(list) {
+    const names = ['Ali', 'Zeynep', 'Mert', 'Elif', 'Can', 'Defne', 'Emir', 'Ece'];
+    list.slice(0, 4).forEach((r, i) => {
+      const car = buildCar(r.model, r.color, { lite: true }); this.scene.add(car);
+      const lane = [0, 2, 1, 0][i], d = [6, 6, 14, 22][i];
+      this.rivals.push({ car, name: r.name || names[i], d, x: ROAD.lanes[lane], tx: ROAD.lanes[lane], speed: 0, skill: 0.9 + i * 0.025 + (this.level.n / 20) * 0.06, slowT: 0, think: 0, hw: car.userData.halfW, hl: car.userData.halfL, spin: 0, ov: 1 });
+    });
+  }
+  makePolice() {
+    for (let i = 0; i < 2; i++) {
+      const car = buildCar('police-car', 'orig', { lite: true });
+      const lb = new THREE.Group(); const red = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.25), new THREE.MeshBasicMaterial({ color: 0xff1a1a })), blue = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.25), new THREE.MeshBasicMaterial({ color: 0x2979ff }));
+      red.position.x = -0.25; blue.position.x = 0.25; lb.add(red, blue); lb.position.y = car.userData.height + 0.08; car.add(lb);
+      this.scene.add(car);
+      this.police.push({ car, red, blue, d: -55 - i * 18, x: ROAD.lanes[i ? 2 : 0], tx: 0, speed: 0, hw: car.userData.halfW, hl: car.userData.halfL });
+    }
+    sfx.sirenStart?.();
+  }
+  laneBlocked(x, d0, d1) {
+    for (const e of this.track.active) {
+      if (!e.alive || !(e.kind === 'obst' || e.kind === 'traffic' || e.kind === 'crates')) continue;
+      if (e.z > d0 && e.z < d1 && Math.abs(e.x - x) < (e.hw || 1.3) + 1.1) return true;
+    }
+    return false;
+  }
+  updateAI(dt, running) {
+    const prog = Math.min(1, this.dist / this.level.length);
+    const base = this.level.speed + prog * 5 + 1.5; // rakipler bölüm hızına göre (yükseltmeler oyuncuya avantaj sağlar)
+    for (const a of this.rivals) {
+      const lead = a.d - this.dist;
+      let ts = base * a.skill * (lead > 30 ? 0.86 : lead > 12 ? 0.95 : lead < -30 ? 1.14 : lead < -10 ? 1.05 : 1);
+      if (a.slowT > 0) { a.slowT -= dt; ts *= 0.45; }
+      if (a.d >= this.level.length) ts = 8;
+      if (running || this.state === 'finish') a.speed += (ts - a.speed) * Math.min(1, dt * 0.9); else a.speed = 0;
+      a.d += a.speed * dt;
+      // engelden kaçınma
+      if ((a.think -= dt) <= 0) {
+        a.think = 0.2;
+        if (this.laneBlocked(a.tx, a.d + 3, a.d + 32)) { const opts = ROAD.lanes.filter(l => !this.laneBlocked(l, a.d + 3, a.d + 32)).sort((p, q) => Math.abs(p - a.x) - Math.abs(q - a.x)); if (opts.length) a.tx = opts[0]; }
+      }
+      a.x += (a.tx - a.x) * (1 - Math.exp(-4 * dt));
+      // engelle çarpışırsa onu savurur ve yavaşlar
+      for (const e of this.track.active) {
+        if (!e.alive || !(e.kind === 'obst' || e.kind === 'traffic' || e.kind === 'crates')) continue;
+        if (Math.abs(e.z - a.d) < (e.hl || 0.6) + a.hl && Math.abs(e.x - a.x) < (e.hw || 1.3) + a.hw * 0.8) { this.knock(e, Math.sign(e.x - a.x) || 1); a.slowT = 1; }
+      }
+      // oyuncuyla temas: itişme (can kaybı yok)
+      const dz = a.d - this.dist, dx = a.x - this.x;
+      if (running && Math.abs(dz) < (a.hl + this.halfL) * 0.9 && Math.abs(dx) < a.hw + this.halfW && this.y < 1) {
+        const s2 = Math.sign(dx) || 1; a.x += s2 * 0.6; a.tx = THREE.MathUtils.clamp(a.tx + s2 * 1.5, -3.4, 3.4); this.x -= s2 * 0.3; this.tx -= s2 * 0.3;
+        if (dz > 0) this.speed *= 0.93; else a.slowT = Math.max(a.slowT, 0.4);
+        if (!a.bumpT || this.time - a.bumpT > 0.6) { a.bumpT = this.time; sfx.bump(); this.shake = 0.2; }
+      }
+      // sollama (geçme) bonusu
+      const ov = Math.sign(dz) || 1;
+      if (running && a.ov > 0 && ov < 0) { if (Math.abs(dx) < a.hw + this.halfW + 1.1) this.nearMiss(); else this.addScore(30, `${a.name} geçildi! +30`); }
+      a.ov = ov;
+      const c = a.car; c.visible = dz > -40 && dz < 320; c.position.set(a.x, 0, -a.d);
+      if (a.spin > 0) { a.spin = Math.max(0, a.spin - dt); c.rotation.y = (1 - a.spin) * Math.PI * 2; } else c.rotation.y = -(a.tx - a.x) * 0.05;
+    }
+    // polis
+    for (const p of this.police) {
+      const gap = this.dist - p.d, ps = this.baseSpeed || base;
+      let ts = ps * (gap > 110 ? 1.2 : gap > 60 ? 1.04 : gap > 25 ? 0.98 : 0.95); // hata yapmazsan yetişemez
+      if (running) p.speed += (ts - p.speed) * Math.min(1, dt * 1.2); else if (this.state !== 'countdown') p.speed *= Math.pow(0.3, dt); else p.speed = 0;
+      p.d += p.speed * dt; p.tx = this.x; p.x += (p.tx - p.x) * (1 - Math.exp(-1.6 * dt));
+      if (running && gap < this.halfL + p.hl && Math.abs(p.x - this.x) < 2.4) {
+        p.d -= 45; this.crashes++; this.shake = 0.6; this.flash('rgba(41,121,255,0.5)'); sfx.crash();
+        this.hearts--; this.popText(this.hearts > 0 ? `YAKALANDIN! ❤️-1` : 'YAKALANDIN! 🚓');
+        if (this.hearts <= 0) { this.caught = true; this.state = 'crashed'; this.endT = 0; engineStop(); sfx.sirenStop?.(); sfx.lose(); }
+      }
+      const blink = Math.floor(this.time * 6) % 2 === 0; p.red.visible = blink; p.blue.visible = !blink;
+      p.car.visible = gap > -320 && gap < 60; p.car.position.set(p.x, 0, -p.d);
+    }
+    if (this.police.length) { const g = Math.min(...this.police.map(p => this.dist - p.d)); this.policeGap = g; sfx.sirenSet?.(Math.max(0, 1 - g / 90)); }
   }
 
   updateCamera(dt) {
@@ -309,8 +453,8 @@ export class Race {
     const back = portrait ? 8.8 : 7.6, up = portrait ? 4.4 : 3.5;
     const fov = (portrait ? 74 : 60) + boost * 12 + Math.min(8, this.speed * 0.15);
     cam.fov += (fov - cam.fov) * Math.min(1, dt * 3); cam.aspect = this.engine.aspect; cam.updateProjectionMatrix();
-    const tp = new THREE.Vector3(this.x * 0.75, up + this.y * 0.6, -this.dist + back - boost * 1.2);
-    if (this.state === 'countdown') tp.add(new THREE.Vector3(Math.sin(this.cd) * 3 * Math.max(0, this.cd - 0.5) / 3, Math.max(0, this.cd - 0.5) * 0.6, 0));
+    const tp = _tp.set(this.x * 0.75, up + this.y * 0.6, -this.dist + back - boost * 1.2);
+    if (this.state === 'countdown') { tp.x += Math.sin(this.cd) * Math.max(0, this.cd - 0.5); tp.y += Math.max(0, this.cd - 0.5) * 0.6; }
     this.camPos.lerp(tp, Math.min(1, dt * 8));
     this.camPos.z = tp.z; // ileri yönde sıkı takip
     cam.position.copy(this.camPos);
@@ -324,11 +468,12 @@ export class Race {
     if (this.wind.material.opacity < 0.01) { this.wind.visible = false; return; }
     this.wind.visible = true;
     const a = this.windGeo.attributes.position.array, base = -this.dist;
-    this.windP.forEach((p, i) => {
-      p.z += this.speed * dt * 1.2; if (p.z > 8) Object.assign(p, this.newWind(false));
-      const L = p.l * (1 + this.speed / 20);
-      a.set([this.x + p.x, p.y, base + p.z, this.x + p.x, p.y, base + p.z - L], i * 6);
-    });
+    for (let i = 0; i < this.windP.length; i++) {
+      const p = this.windP[i];
+      p.z += this.speed * dt * 1.2; if (p.z > 8) { p.x = (Math.random() - 0.5) * 16; p.y = 0.5 + Math.random() * 5; p.z = -60; p.l = 1 + Math.random() * 3; }
+      const L = p.l * (1 + this.speed / 20), o = i * 6, x = this.x + p.x;
+      a[o] = x; a[o + 1] = p.y; a[o + 2] = base + p.z; a[o + 3] = x; a[o + 4] = p.y; a[o + 5] = base + p.z - L;
+    }
     this.windGeo.attributes.position.needsUpdate = true;
   }
 
@@ -346,7 +491,8 @@ export class Race {
   dispose() {
     this.engine.onSlow = null;
     this.engine.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.unbindInput(); engineStop();
+    this.unbindInput(); engineStop(); sfx.sirenStop?.();
+    for (const a of [...this.rivals, ...this.police]) this.scene.remove(a.car);
     this.track.dispose(); this.world.dispose();
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = '';
   }

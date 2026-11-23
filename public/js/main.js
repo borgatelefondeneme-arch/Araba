@@ -49,7 +49,7 @@ function show(name) {
   if (name === 'map') renderMap($('map-wrap'), save, openLevelCard);
   if (name === 'garage') { garageIdx = CARS.findIndex(c => c.id === save.car); preview = {}; gtab = 'up'; renderGarage(); requestAnimationFrame(() => { showroom.zone = zoneFor('garage'); }); }
   if (name === 'mp') enterMp();
-  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; $('s-fps').checked = !!save.showFps; }
+  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; $('s-fps').checked = !!save.showFps; $('s-steer').value = save.steer || 'free'; }
   wallet();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { initAudio(); sfx.click(); show(b.dataset.go); }));
@@ -164,6 +164,7 @@ function openLevelCard(l) {
   $('lc-stars').innerHTML = stars(save.levels[l.n] || 0);
   $('lc-len').textContent = `${(l.length / 1000).toFixed(1)} km`;
   $('lc-reward').textContent = `★ ${l.reward} + topladıkların`;
+  $('lc-mode').innerHTML = l.mode === 'police' ? '🚓 <b>Polis Kovalamacası</b> – Polislere yakalanmadan bitişe ulaş! Şok dalgası polisleri geri iter.' : '🏁 <b>Yarış</b> – 4 rakibi geçip birinci ol! Kıl payı geçişler kombo ve nitro kazandırır.';
   $('level-card').classList.remove('hidden');
 }
 $('lc-close').onclick = () => $('level-card').classList.add('hidden');
@@ -171,6 +172,12 @@ $('lc-go').onclick = () => { $('level-card').classList.add('hidden'); startRace(
 
 // ---------- Yarış ----------
 function tryFullscreen() { if (matchMedia('(pointer: coarse)').matches && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); }
+// Rakipler: oyuncunun arabası dışındaki araçlardan, bölüme göre sabit seçim
+function rivalsFor(level) {
+  const pool = CARS.filter(c => c.id !== save.car && c.type !== 'concept'), out = [];
+  for (let i = 0; i < 4; i++) { const c = pool[(level.n * 3 + i * 5) % pool.length]; out.push({ model: raceModel(c.type), color: c.colors[(level.n + i) % c.colors.length] }); }
+  return out;
+}
 async function startRace(level, o) {
   initAudio(); tryFullscreen();
   if (race) { race.dispose(); race = null; }
@@ -181,12 +188,14 @@ async function startRace(level, o) {
   screen = 'race'; raceMode = o; currentLevel = level; paused = false;
   const car = carById(save.car);
   const players = (o.players || []).map(p => ({ ...p, model: raceModel(carById(p.car).type) }));
-  try { await Promise.all([preloadModels([raceModel(car.type), ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme, engine.quality)]); }
+  const rivals = o.mp ? [] : level.mode === 'police' ? [] : rivalsFor(level);
+  try { await Promise.all([preloadModels([raceModel(car.type), ...trafficSet(level), ...players.map(p => p.model), ...rivals.map(r => r.model), ...(level.mode === 'police' && !o.mp ? ['police-car'] : [])]), preloadWorld(level.theme, engine.quality)]); }
   catch (e) { console.warn(e); toast('Araç modelleri yüklenemedi'); }
   if (screen !== 'race' || raceMode !== o) return;
   race = new Race(engine, {
     level, carDef: car, color: carColor(car), custom: customOf(car), upg: upgOf(car), stats: carStats(car, save.upgrades[car.id]),
     seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: o.mp ? Math.max(1.5, o.countdown / 1000 - (performance.now() - o.t0) / 1000) : 3.2,
+    rivals, steerMode: save.steer || 'free',
     onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
     onDegrade: () => { if (save.quality === 'auto' || save.quality === 'medium' || save.quality === 'high') { save.quality = 'low'; persist(); toast('Akıcı oynanış için grafik kalitesi Düşük yapıldı'); } },
   });
@@ -203,11 +212,11 @@ function raceEnded(r) {
   save.stars += r.stars + bonusStars; save.diamonds += r.diamonds + bonusDia;
   if (r.success) { save.levels[l.n] = Math.max(save.levels[l.n] || 0, r.rating); save.unlocked = Math.max(save.unlocked, Math.min(LEVELS.length, l.n + 1)); }
   persist();
-  $('r-title').textContent = r.success ? (r.rating === 3 ? 'Muhteşem! 🏆' : 'Bölüm Tamam! 🏁') : 'Kaza Yaptın! 💥';
+  $('r-title').textContent = !r.success ? (r.caught ? 'Polis Yakaladı! 🚓' : 'Kaza Yaptın! 💥') : r.mode === 'race' ? (r.place === 1 ? 'Birinci Oldun! 🏆' : `${r.place}. Oldun 🏁`) : r.mode === 'police' ? 'Polisten Kaçtın! 🚓💨' : 'Bölüm Tamam! 🏁';
   $('r-rating').innerHTML = stars(r.rating);
   $('r-body').innerHTML = `<div class="reward"><span>★ +${r.stars + bonusStars}</span><span>◆ +${r.diamonds + bonusDia}</span></div>
-    <p class="muted">Toplanan yıldız: ${r.stars} / ${r.total}${r.success ? ` · Süre: ${r.time.toFixed(1)} sn` : ` · Yol: %${Math.round(r.dist / l.length * 100)}`}</p>
-    ${r.success && r.rating < 3 ? '<p class="hint">3 yıldız için yıldızların %70\'ini topla ve hiç çarpma!</p>' : ''}`;
+    <p class="muted">Puan: <b>${r.score}</b> · Kıl payı: ${r.nearMisses} · Yıldız: ${r.stars}${r.success ? ` · Süre: ${r.time.toFixed(1)} sn` : ` · Yol: %${Math.round(r.dist / l.length * 100)}`}</p>
+    ${r.success && r.rating < 3 ? `<p class="hint">${r.mode === 'race' ? '3 yıldız için birinci ol!' : r.mode === 'police' ? '3 yıldız için hiç yakalanma!' : '3 yıldız için yıldızların %70\'ini topla ve hiç çarpma!'}</p>` : ''}`;
   const btns = $('r-buttons'); btns.innerHTML = '';
   const B = (t, cls, f) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = t; b.onclick = () => { sfx.click(); f(); }; btns.appendChild(b); };
   B('Harita', '', () => exitRace('map'));
@@ -309,6 +318,7 @@ function renderMpResults(final) {
 // ---------- Ayarlar ----------
 $('s-name').onchange = () => { save.name = $('s-name').value.trim() || 'Oyuncu'; persist(); };
 $('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); toast('Kalite, oyunu yeniden açınca uygulanır'); };
+$('s-steer').onchange = () => { save.steer = $('s-steer').value; persist(); };
 $('s-fps').onchange = () => { save.showFps = $('s-fps').checked; persist(); };
 $('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); };
 $('s-full').onclick = () => document.documentElement.requestFullscreen?.().catch(() => toast('Bu cihaz tam ekranı desteklemiyor'));

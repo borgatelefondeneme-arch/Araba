@@ -55,7 +55,7 @@ export function renderMap(wrap, save, onPick) {
     const l = p.l, unlocked = l.n <= save.unlocked, best = save.levels[l.n] || 0;
     const b = document.createElement('button'); b.className = 'node' + (unlocked ? '' : ' locked') + (l.n === save.unlocked ? ' current' : '');
     b.style.left = p.x + 'px'; b.style.top = p.y + 'px';
-    b.innerHTML = `<span class="num">${unlocked ? l.n : '🔒'}</span><span class="nstars">${[1, 2, 3].map(i => `<i class="${i <= best ? 'on' : ''}">★</i>`).join('')}</span>`;
+    b.innerHTML = `${l.mode === 'police' ? '<span class="mode">🚓</span>' : ''}<span class="num">${unlocked ? l.n : '🔒'}</span><span class="nstars">${[1, 2, 3].map(i => `<i class="${i <= best ? 'on' : ''}">★</i>`).join('')}</span>`;
     if (unlocked) b.onclick = () => onPick(l);
     inner.appendChild(b);
     if (l.n === Math.min(save.unlocked, LEVELS.length)) current = p;

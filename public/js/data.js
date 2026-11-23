@@ -57,6 +57,7 @@ REGIONS.forEach((r, ri) => {
       traffic: Math.min(0.55, 0.15 + n * 0.02),
       reward: 60 + n * 15,
       seed: 1000 + n * 7919,
+      mode: n % 4 === 3 ? 'police' : 'race', // her bölgenin 3. bölümü polis kovalamacası
     });
   }
 });

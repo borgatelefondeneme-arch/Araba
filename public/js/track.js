@@ -119,6 +119,25 @@ function makeCollectible(kind) {
   return g;
 }
 
+// Hız şeridi: yerde parlayan ok desenli şerit
+let boostTex = null;
+function makeBoost() {
+  if (!boostTex) { const c = document.createElement('canvas'); c.width = 64; c.height = 256; const x = c.getContext('2d'); x.fillStyle = '#00131f'; x.fillRect(0, 0, 64, 256);
+    for (let y = 0; y < 256; y += 64) { x.fillStyle = '#00e5ff'; x.beginPath(); x.moveTo(6, y + 50); x.lineTo(32, y + 14); x.lineTo(58, y + 50); x.lineTo(58, y + 62); x.lineTo(32, y + 28); x.lineTo(6, y + 62); x.fill(); }
+    boostTex = new THREE.CanvasTexture(c); boostTex.colorSpace = THREE.SRGBColorSpace; boostTex.wrapT = THREE.RepeatWrapping; boostTex.repeat.set(1, 2); }
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 9), new THREE.MeshBasicMaterial({ map: boostTex, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.03; const g = new THREE.Group(); g.add(m); g.userData.boost = m; return g;
+}
+// Kırılabilir karton kutu yığını (nitro/kalkan gerekmez, çarpınca dağılır)
+let crateMat = null;
+function makeCrates() {
+  if (!crateMat) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.fillStyle = '#c9a06a'; x.fillRect(0, 0, 64, 64); x.fillStyle = '#a57c48'; x.fillRect(0, 28, 64, 8); x.strokeStyle = '#7a5a30'; x.lineWidth = 3; x.strokeRect(2, 2, 60, 60); x.fillStyle = '#5a3d1e'; x.font = 'bold 14px Arial'; x.fillText('↑↑', 22, 22);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; crateMat = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 }); }
+  const g = new THREE.Group(), geo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+  for (const [x, y, z] of [[-0.85, 0.4, 0], [0, 0.4, 0.1], [0.85, 0.4, -0.05], [-0.42, 1.2, 0], [0.42, 1.2, 0.05]]) { const b = new THREE.Mesh(geo, crateMat); b.position.set(x, y, z); b.rotation.y = (x * 7) % 0.4; b.castShadow = true; g.add(b); }
+  return g;
+}
+
 function makeRamp() { const S = res(); const m = new THREE.Mesh(S.rampGeo, [S.rampSide, S.rampTop]); m.castShadow = true; m.receiveShadow = true; return m; }
 
 function makeFinish() {
@@ -181,6 +200,9 @@ export function generateLevel(level, seed) {
         free = free.filter(l => l !== lane);
       }
     }
+    // hız şeridi (boost) ve kırılabilir kutular
+    if (r() < 0.16) ents.push({ kind: 'boost', lane: pick(free), z: z + spacing * 0.35 });
+    if (r() < 0.14 + d * 0.06) { const l = pick(free); ents.push({ kind: 'crates', lane: l, z: z + spacing * 0.65 }); }
     // yıldız dizisi
     const sl = pick(free);
     if (r() < 0.85) addStars(sl, z + 8, z + spacing - 8);
@@ -219,6 +241,8 @@ export class TrackView {
       case 'traffic': key = 't:' + e.ttype + e.color; obj = this.acquire(key, () => buildCar(e.ttype, e.color, { lite: true }));
         e.hw = obj.userData.halfW; e.hl = obj.userData.halfL; e.h = obj.userData.height + 0.15; break;
       case 'ramp': key = 'ramp'; obj = this.acquire(key, makeRamp); break;
+      case 'boost': key = 'boost'; obj = this.acquire(key, makeBoost); break;
+      case 'crates': key = 'crates'; obj = this.acquire(key, makeCrates); e.hw = 1.3; e.hl = 0.7; e.h = 1.4; break;
       case 'finish': key = 'finish'; obj = this.acquire(key, makeFinish); break;
       case 'star': key = 'star'; obj = this.acquire(key, () => new THREE.Object3D()); break; // yıldızlar tek seferde (instancing) çizilir
       default: key = e.kind; obj = this.acquire(key, () => makeCollectible(e.kind));
@@ -260,6 +284,7 @@ export class TrackView {
       } else {
         o.position.z = -e.z;
         if (e.magnet) { o.position.x += (e.magnet.x - o.position.x) * Math.min(1, dt * 12); o.position.y += (e.magnet.y + 1 - o.position.y) * Math.min(1, dt * 12); }
+        if (e.kind === 'boost') o.userData.boost.material.map.offset.y = -time * 1.5;
         if (e.kind === 'star') o.rotation.y = Math.sin(time * 2.5 + e.z * 0.3) * 0.7; // hep kameraya dönük salınır (yandan çubuk gibi görünmesin)
         else if (e.kind === 'diamond') { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3 + e.z) * 0.15; }
         else if (['magnet', 'nitro', 'shield'].includes(e.kind)) { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3) * 0.15; }
