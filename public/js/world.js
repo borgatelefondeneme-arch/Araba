@@ -119,7 +119,7 @@ export class World {
     const rt = roadTextures(L, theme), RL = 600;
     for (const t of [rt.map, rt.normal, rt.rough]) if (t) t.repeat.set(1, RL / ROAD.texLen);
     const road = this.road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD.halfWidth * 2, RL), new THREE.MeshStandardMaterial({
-      map: rt.map, normalMap: rt.normal, roughnessMap: rt.rough, normalScale: new THREE.Vector2(0.9, 0.9), roughness: theme === 'city' ? 0.55 : 1, metalness: theme === 'city' ? 0.1 : 0 }));
+      map: rt.map, normalMap: q.lite ? null : rt.normal, roughnessMap: q.lite ? null : rt.rough, normalScale: new THREE.Vector2(0.9, 0.9), roughness: theme === 'city' ? 0.55 : 1, metalness: theme === 'city' ? 0.1 : 0 }));
     road.rotation.x = -Math.PI / 2; road.position.y = 0.01; road.receiveShadow = true; scene.add(road); this.roadLen = RL;
     // kaldırım taşı (bordür)
     const curbMat = new THREE.MeshStandardMaterial({ color: theme === 'snow' ? 0xdfe6ee : 0xb9b6ae, roughness: 0.8 });
@@ -139,7 +139,7 @@ export class World {
   }
 
   buildTerrain(L) {
-    const T = this.T, W = 1000, LEN = PERIOD * 2, SX = 100, SZ = 240;
+    const T = this.T, W = 1000, LEN = PERIOD * 2, lite = this.engine.quality.lite, SX = lite ? 56 : 100, SZ = lite ? 120 : 240;
     const g = new THREE.PlaneGeometry(W, LEN, SX, SZ); g.rotateX(-Math.PI / 2);
     const p = g.attributes.position, uv = g.attributes.uv;
     for (let i = 0; i < p.count; i++) {
@@ -150,7 +150,7 @@ export class World {
       uv.setXY(i, x / 9, z / 9);
     }
     g.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ map: L.gd || null, normalMap: L.gn || null, roughnessMap: L.gr || null, color: L.gd ? T.groundTint : 0x6d8a4a, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2) });
+    const mat = new THREE.MeshStandardMaterial({ map: L.gd || null, normalMap: this.engine.quality.lite ? null : L.gn || null, roughnessMap: this.engine.quality.lite ? null : L.gr || null, color: L.gd ? T.groundTint : 0x6d8a4a, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2) });
     for (const t of [L.gd, L.gn, L.gr]) if (t) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
     this.terrain = new THREE.Mesh(g, mat); this.terrain.receiveShadow = true; this.scene.add(this.terrain);
   }

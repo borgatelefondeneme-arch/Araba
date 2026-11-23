@@ -7,7 +7,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const QUALITY = {
   // props: dekor yoğunluğu, range: görüş mesafesi (m), propShadows: ağaç/ev gölgesi, grass: çim/ayçiçeği yoğunluğu
-  low: { pr: 1, shadows: 0, bloom: false, props: 0.35, range: 160, aa: false, propShadows: false, grass: 0, normals: false },
+  low: { pr: 0.8, shadows: 0, bloom: false, props: 0.22, range: 140, aa: false, propShadows: false, grass: 0, normals: false, lite: true },
   medium: { pr: 1.25, shadows: 1024, bloom: false, props: 0.55, range: 210, aa: false, propShadows: false, grass: 0.4, normals: false },
   high: { pr: 2, shadows: 2048, bloom: true, props: 1, range: 340, aa: true, propShadows: true, grass: 1, normals: true },
 };

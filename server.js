@@ -50,11 +50,13 @@ function code4() {
 const out = (ws, m) => { if (ws.readyState === 1) ws.send(JSON.stringify(m)); };
 const pub = (p) => ({ id: p.id, name: p.name, car: p.car, color: p.color });
 function roomInfo(r) {
-  return { t: 'room', code: r.code, hostId: r.hostId, level: r.level, state: r.state, players: [...r.players.values()].map(pub) };
+  return { t: 'room', code: r.code, hostId: r.hostId, level: r.level, need: r.need, state: r.state, players: [...r.players.values()].map(pub) };
 }
+function checkGo(r) { if (r.state === 'race' && r.ready && [...r.players.keys()].every(id => r.ready.has(id))) sendGo(r); }
+function sendGo(r) { if (r.state !== 'race' || r.went) return; r.went = true; clearTimeout(r.goTimer); broadcast(r, { t: 'go', countdown: 3500 }); }
 function broadcast(r, m, exceptId) { for (const p of r.players.values()) if (p.id !== exceptId) out(p.ws, m); }
 function roomList() {
-  return { t: 'rooms', list: [...rooms.values()].filter(r => r.state === 'lobby').map(r => ({ code: r.code, host: r.players.get(r.hostId)?.name || '?', count: r.players.size, level: r.level })) };
+  return { t: 'rooms', list: [...rooms.values()].filter(r => r.state === 'lobby').map(r => ({ code: r.code, host: r.players.get(r.hostId)?.name || '?', count: r.players.size, need: r.need, level: r.level })) };
 }
 function sendRoomListAll() { const m = roomList(); for (const c of clients.values()) if (!c.room) out(c.ws, m); }
 
@@ -68,7 +70,7 @@ function leave(c) {
     if (r.hostId === c.id) r.hostId = r.players.keys().next().value;
     broadcast(r, { t: 'left', id: c.id });
     broadcast(r, roomInfo(r));
-    checkRaceEnd(r);
+    checkGo(r); checkRaceEnd(r);
   }
   sendRoomListAll();
 }
@@ -104,7 +106,7 @@ wss.on('connection', (ws) => {
       case 'listRooms': out(ws, roomList()); break;
       case 'create': {
         leave(c);
-        const room = { code: code4(), hostId: c.id, players: new Map([[c.id, c]]), level: Number(m.level) || 1, state: 'lobby', results: [], seed: 0 };
+        const room = { code: code4(), hostId: c.id, players: new Map([[c.id, c]]), level: Number(m.level) || 1, need: Math.min(6, Math.max(1, Number(m.need) || 2)), state: 'lobby', results: [], seed: 0 };
         rooms.set(room.code, room); c.room = room.code;
         out(ws, roomInfo(room)); sendRoomListAll();
         break;
@@ -113,7 +115,7 @@ wss.on('connection', (ws) => {
         const room = rooms.get(String(m.code || '').toUpperCase());
         if (!room) { out(ws, { t: 'error', msg: 'Oda bulunamadı' }); break; }
         if (room.state !== 'lobby') { out(ws, { t: 'error', msg: 'Yarış sürüyor, biraz bekle' }); break; }
-        if (room.players.size >= 6) { out(ws, { t: 'error', msg: 'Oda dolu' }); break; }
+        if (room.players.size >= Math.max(room.need || 6, 2)) { out(ws, { t: 'error', msg: 'Oda dolu' }); break; }
         leave(c); room.players.set(c.id, c); c.room = room.code;
         broadcast(room, roomInfo(room)); sendRoomListAll();
         break;
@@ -121,13 +123,15 @@ wss.on('connection', (ws) => {
       case 'leave': leave(c); out(ws, roomList()); break;
       case 'setLevel': if (r && r.hostId === c.id && r.state === 'lobby') { r.level = Math.max(1, Number(m.level) || 1); broadcast(r, roomInfo(r)); } break;
       case 'start':
-        if (r && r.hostId === c.id && r.state === 'lobby') {
-          r.state = 'race'; r.results = []; r.seed = Math.floor(Math.random() * 1e9);
-          broadcast(r, { t: 'start', level: r.level, seed: r.seed, countdown: 6000, players: [...r.players.values()].map(pub) });
+        if (r && r.hostId === c.id && r.state === 'lobby' && r.players.size >= (r.need || 1)) {
+          r.state = 'race'; r.results = []; r.seed = Math.floor(Math.random() * 1e9); r.ready = new Set(); r.went = false;
+          broadcast(r, { t: 'start', level: r.level, seed: r.seed, players: [...r.players.values()].map(pub) });
+          clearTimeout(r.goTimer); r.goTimer = setTimeout(() => sendGo(r), 30000);
           r.timer = setTimeout(() => endRace(r), 6 * 60 * 1000);
           sendRoomListAll();
         }
         break;
+      case 'ready': if (r && r.state === 'race' && r.ready) { r.ready.add(c.id); checkGo(r); } break;
       case 'state': if (r && r.state === 'race') broadcast(r, { t: 'state', id: c.id, d: m.d, x: m.x, y: m.y, s: m.s }, c.id); break;
       case 'finish':
         if (r && r.state === 'race' && !r.results.some(x => x.id === c.id)) {

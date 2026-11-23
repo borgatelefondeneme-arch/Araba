@@ -148,6 +148,7 @@ class RoomImpl {
       case 'setLevel': if (g && this.hostId() === this.id) { this.level = Number(m.level) || 1; g.presence({ level: this.level }).catch(() => {}); this.advertise(true); this.net.emit('room', this.roomMsg()); } break;
       case 'start': if (g && this.hostId() === this.id) g.emit('start', { level: this.level, seed: Math.floor(Math.random() * 1e9), epoch: Date.now() }).catch(() => this.net.emit('error', { t: 'error', msg: 'Başlatılamadı' })); break;
       case 'state': if (g && this.racing) g.presence({ st: { e: this.epoch, d: m.d, x: m.x, y: m.y, s: m.s } }).catch(() => {}); break;
+      case 'ready': this.net.emit('go', { t: 'go', countdown: 3000 }); break;
       case 'finish': if (g && this.racing) { g.presence({ fin: { e: this.epoch, time: m.time, stars: m.stars } }).catch(() => {}); setTimeout(() => this.checkResults(), 50); } break;
     }
   }
@@ -182,14 +183,14 @@ class PeerImpl {
       p.on('open', (pid) => ok(p)); p.on('error', (e) => no(e));
     });
   }
-  async create(level) {
+  async create(level, need) {
     try { await (this.ready ||= loadScript(PEERJS)); } catch { this.net.emit('error', { t: 'error', msg: 'İnternet bağlantısı gerekli' }); return; }
     this.close();
     const code = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
-    let p; try { p = await this.makePeer(PREFIX + code.toLowerCase()); } catch { return this.create(level); }
+    let p; try { p = await this.makePeer(PREFIX + code.toLowerCase()); } catch { return this.create(level, need); }
     this.peer = p; this.id = p.id; this.net.emit('welcome', { id: this.id });
     const me = { id: this.id, ...this.profile, conn: null };
-    this.host = { code, hostId: this.id, level: Number(level) || 1, state: 'lobby', results: [], players: new Map([[this.id, me]]) };
+    this.host = { code, hostId: this.id, level: Number(level) || 1, need: Math.min(6, Math.max(1, Number(need) || 2)), state: 'lobby', results: [], players: new Map([[this.id, me]]) };
     p.on('connection', (c) => {
       c.on('data', (m) => this.hostHandle(c.peer, m, c));
       c.on('close', () => this.hostLeave(c.peer));
@@ -212,24 +213,26 @@ class PeerImpl {
   }
   close() { try { this.conn?.close(); } catch {} try { this.peer?.destroy(); } catch {} this.conn = null; this.peer = null; this.host = null; }
   // --- oda sahibi (sunucu rolü) ---
-  roomInfo() { const r = this.host; return { t: 'room', code: r.code, hostId: r.hostId, level: r.level, state: r.state, players: [...r.players.values()].map(p => ({ id: p.id, name: p.name, car: p.car, color: p.color })) }; }
+  roomInfo() { const r = this.host; return { t: 'room', code: r.code, hostId: r.hostId, level: r.level, need: r.need, state: r.state, players: [...r.players.values()].map(p => ({ id: p.id, name: p.name, car: p.car, color: p.color })) }; }
   hostBroadcast(m, exceptId) { const r = this.host; if (!r) return; for (const p of r.players.values()) { if (p.id === exceptId) continue; if (p.conn) { try { p.conn.send(m); } catch {} } else this.net.emit(m.t, m); } }
-  hostLeave(id) { const r = this.host; if (!r || !r.players.has(id)) return; r.players.delete(id); this.hostBroadcast({ t: 'left', id }); this.hostBroadcast(this.roomInfo()); this.checkEnd(); }
+  hostLeave(id) { const r = this.host; if (!r || !r.players.has(id)) return; r.players.delete(id); this.hostBroadcast({ t: 'left', id }); this.hostBroadcast(this.roomInfo()); this.checkGo(); this.checkEnd(); }
   hostHandle(from, m, conn) {
     const r = this.host; if (!r || !m || typeof m.t !== 'string') return;
     const s = (v, n) => String(v ?? '').slice(0, n);
     switch (m.t) {
       case 'hello': case 'profile': {
-        if (!r.players.has(from)) { if (r.state !== 'lobby') { conn?.send({ t: 'error', msg: 'Yarış sürüyor, biraz bekle' }); return; } if (r.players.size >= 6) { conn?.send({ t: 'error', msg: 'Oda dolu' }); return; } }
+        if (!r.players.has(from)) { if (r.state !== 'lobby') { conn?.send({ t: 'error', msg: 'Yarış sürüyor, biraz bekle' }); return; } if (r.players.size >= Math.max(r.need, 2)) { conn?.send({ t: 'error', msg: 'Oda dolu' }); return; } }
         const p = r.players.get(from) || { id: from, conn }; Object.assign(p, { name: s(m.name, 16) || 'Oyuncu', car: s(m.car, 20) || 'hatch', color: s(m.color, 9) || 'orig' });
         r.players.set(from, p); this.hostBroadcast(this.roomInfo()); break;
       }
       case 'setLevel': if (from === r.hostId && r.state === 'lobby') { r.level = Math.max(1, Number(m.level) || 1); this.hostBroadcast(this.roomInfo()); } break;
-      case 'start': if (from === r.hostId && r.state === 'lobby') {
-        r.state = 'race'; r.results = []; clearTimeout(r.timer);
-        this.hostBroadcast({ t: 'start', level: r.level, seed: Math.floor(Math.random() * 1e9), countdown: 6000, players: this.roomInfo().players });
+      case 'start': if (from === r.hostId && r.state === 'lobby' && r.players.size >= r.need) {
+        r.state = 'race'; r.results = []; r.ready = new Set(); r.went = false; clearTimeout(r.timer); clearTimeout(r.goTimer);
+        this.hostBroadcast({ t: 'start', level: r.level, seed: Math.floor(Math.random() * 1e9), players: this.roomInfo().players });
+        r.goTimer = setTimeout(() => this.sendGo(), 30000); // yavaş cihaz takılırsa en fazla 30 sn bekle
         r.timer = setTimeout(() => this.endRace(), 6 * 60 * 1000);
       } break;
+      case 'ready': if (r.state === 'race' && r.ready) { r.ready.add(from); this.checkGo(); } break;
       case 'state': if (r.state === 'race') this.hostBroadcast({ t: 'state', id: from, d: +m.d || 0, x: +m.x || 0, y: +m.y || 0, s: +m.s || 0 }, from); break;
       case 'finish': if (r.state === 'race' && !r.results.some(x => x.id === from)) {
         const p = r.players.get(from); r.results.push({ id: from, name: p?.name || '?', time: +m.time || 0, stars: +m.stars || 0, place: r.results.length + 1 });
@@ -239,13 +242,15 @@ class PeerImpl {
       } break;
     }
   }
+  checkGo() { const r = this.host; if (r && r.state === 'race' && r.ready && [...r.players.keys()].every(id => r.ready.has(id))) this.sendGo(); }
+  sendGo() { const r = this.host; if (!r || r.state !== 'race' || r.went) return; r.went = true; clearTimeout(r.goTimer); this.hostBroadcast({ t: 'go', countdown: 3500 }); }
   checkEnd() { const r = this.host; if (r && r.state === 'race' && [...r.players.keys()].every(id => r.results.some(x => x.id === id))) this.endRace(); }
   endRace() { const r = this.host; if (!r || r.state !== 'race') return; clearTimeout(r.timer); r.state = 'lobby'; this.hostBroadcast({ t: 'raceEnd', results: r.results }); this.hostBroadcast(this.roomInfo()); }
   send(m) {
     switch (m.t) {
       case 'profile': this.profile = { name: String(m.name || 'Oyuncu').slice(0, 16), car: String(m.car || 'hatch'), color: String(m.color || 'orig') }; if (this.host) this.hostHandle(this.id, m); else this.conn?.send(m); break;
       case 'listRooms': this.net.emit('rooms', { t: 'rooms', list: [] }); break;
-      case 'create': this.create(m.level); break;
+      case 'create': this.create(m.level, m.need); break;
       case 'join': this.join(String(m.code || '').toUpperCase()); break;
       case 'leave': this.close(); break;
       default: if (this.host) this.hostHandle(this.id, m); else this.conn?.send(m);

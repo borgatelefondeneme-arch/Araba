@@ -52,7 +52,7 @@ export class Race {
     this.wind.frustumCulled = false; this.scene.add(this.wind); this.windP = Array.from({ length: N }, () => this.newWind(true));
 
     // durum
-    this.state = 'countdown'; this.cd = opts.countdown ?? 3.2; this.lastBeep = 4;
+    this.state = opts.waitGo ? 'wait' : 'countdown'; this.cd = opts.countdown ?? 3.2; this.lastBeep = 4; this.waitT = 0;
     this.dist = 0; this.speed = 0; this.lane = 1; this.prevLane = 1; this.x = 0; this.y = 0; this.vy = 0; this.onRamp = null;
     this.time = 0; this.starsGot = 0; this.diamondsGot = 0; this.crashes = 0;
     this.maxHearts = 1 + Math.floor(stats.armor / 2); this.hearts = this.maxHearts;
@@ -223,8 +223,14 @@ export class Race {
     dt = Math.min(dt, 0.05);
     this.time += dt;
     const st = this.stats;
+    if (this.state === 'wait') {
+      this.waitT += dt; const el = $('countdown');
+      if (el.dataset.w !== '1') { el.dataset.w = '1'; el.classList.add('waiting'); el.textContent = 'Diğer oyuncular bekleniyor…'; }
+      if (this.waitT > 40) this.go(3.2); // oda sahibine ulaşılamazsa sonsuza dek bekleme
+    }
     if (this.state === 'countdown') {
-      this.cd -= dt; const n = Math.ceil(this.cd);
+      // çok oyunculuda gerçek saat: yavaş cihaz da aynı anda başlar
+      if (this.goAt) this.cd = (this.goAt - performance.now()) / 1000; else this.cd -= dt; const n = Math.ceil(this.cd);
       if (n !== this.lastBeep && n >= 0) { this.lastBeep = n; if (n > 0) { $('countdown').textContent = n; sfx.beep(false); if (n === 3 && !this.autoGas) this.banner('Ekrana BASILI TUT = GAZ 👆'); } else { $('countdown').textContent = 'BAŞLA!'; sfx.beep(true); } }
       if (this.cd <= 0) { this.state = 'run'; setTimeout(() => { if ($('countdown').textContent === 'BAŞLA!') $('countdown').textContent = ''; }, 700); }
     }
@@ -503,7 +509,7 @@ export class Race {
     const fov = (portrait ? 74 : 60) + boost * 12 + Math.min(8, this.speed * 0.15);
     cam.fov += (fov - cam.fov) * Math.min(1, dt * 3); cam.aspect = this.engine.aspect; cam.updateProjectionMatrix();
     const tp = _tp.set(this.x * 0.75, up + this.y * 0.6, -this.dist + back - boost * 1.2);
-    if (this.state === 'countdown') { tp.x += Math.sin(this.cd) * Math.max(0, this.cd - 0.5); tp.y += Math.max(0, this.cd - 0.5) * 0.6; }
+    if (this.state === 'countdown' || this.state === 'wait') { tp.x += Math.sin(this.cd) * Math.max(0, this.cd - 0.5); tp.y += Math.max(0, this.cd - 0.5) * 0.6; }
     this.camPos.lerp(tp, Math.min(1, dt * 8));
     this.camPos.z = tp.z; // ileri yönde sıkı takip
     cam.position.copy(this.camPos);
@@ -546,13 +552,20 @@ export class Race {
     R.setScissorTest(false); R.setViewport(0, 0, W, H); R.autoClear = ac;
   }
   // Tüm model/malzeme türlerini yükleme ekranında bir kez çiz: gölgelendirici derlemesi yarış sırasında olmasın
+  go(sec) {
+    if (this.state !== 'wait') return;
+    const el = $('countdown'); el.dataset.w = ''; el.classList.remove('waiting'); el.textContent = '';
+    this.state = 'countdown'; this.cd = sec; this.lastBeep = 4; this.goAt = performance.now() + sec * 1000;
+  }
   async warmup() {
     const R = this.engine.renderer;
     this.world.update(-this.dist, this.camera, 0); this.track.update(this.dist, 0, 0); this.track.writeStars(); this.updateCamera(0.016);
     const tmp = this.track.warmObjects();
+    const hid = [...this.remotes.values()].map(r => r.car).filter(c => !c.visible); for (const c of hid) { c.visible = true; c.position.set(0, 0, -this.dist - 12); }
     if (R.compileAsync) await R.compileAsync(this.scene, this.camera); else R.compile(this.scene, this.camera);
     this.engine.render(this.scene, this.camera);
     this.track.releaseWarm(tmp);
+    for (const c of hid) c.visible = false;
   }
 
   dispose() {
@@ -561,7 +574,7 @@ export class Race {
     this.unbindInput(); engineStop(); sfx.sirenStop?.();
     for (const a of [...this.rivals, ...this.police]) this.scene.remove(a.car);
     this.track.dispose(); this.world.dispose();
-    $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = ''; $('police-glow').className = 'police-glow'; $('police-glow').style.opacity = 0;
+    $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = ''; $('countdown').classList.remove('waiting'); $('countdown').dataset.w = ''; $('police-glow').className = 'police-glow'; $('police-glow').style.opacity = 0;
     this.mirrorRT?.dispose();
   }
 }

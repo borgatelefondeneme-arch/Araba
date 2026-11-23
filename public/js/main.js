@@ -196,7 +196,7 @@ async function startRace(level, o) {
   if (screen !== 'race' || raceMode !== o) return;
   race = new Race(engine, {
     level, carDef: car, color: carColor(car), custom: customOf(car), upg: upgOf(car), stats: carStats(car, save.upgrades[car.id]),
-    seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: o.mp ? Math.max(1.5, o.countdown / 1000 - (performance.now() - o.t0) / 1000) : 3.2,
+    seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: 3.2, waitGo: !!o.waitGo,
     rivals, steerMode: save.steer || 'free',
     onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
     onDegrade: () => { if (save.quality === 'auto' || save.quality === 'medium' || save.quality === 'high') { save.quality = 'low'; persist(); toast('Akıcı oynanış için grafik kalitesi Düşük yapıldı'); } },
@@ -206,6 +206,7 @@ async function startRace(level, o) {
   engine.resetFps();
   playMusic(o.mp ? 'race' : level.mode === 'police' ? 'police' : 'race');
   $('loading').classList.add('hidden');
+  if (o.waitGo) { if (mpGo) race.go((mpGo.countdown || 3500) / 1000); else net.send({ t: 'ready' }); }
 }
 function raceEnded(r) {
   if (raceMode.mp) { showMpResults(r); return; }
@@ -246,7 +247,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && rac
 
 // ---------- Birlikte oyna ----------
 function enterMp() {
-  $('mp-name').value = save.name;
+  $('mp-name').value = save.name; $('mp-need').value = String(save.mpNeed || 2);
   net.connect();
   $('mp-hint').textContent = net.mode === 'peer' ? 'Bir cihaz "Oda Kur"a bassın. Diğeri ekranda çıkan 4 harfli kodu yazıp "Katıl"a bassın. İnternet bağlantısı yeterli, aynı Wi-Fi gerekmez.' : net.mode === 'room' ? 'İki cihazda da bu sayfayı aynı Claude hesabıyla aç. Biri oda kursun, diğeri listeden katılsın.' : 'Tüm cihazlar aynı Wi-Fi\'de olmalı. Bir cihaz oda kurar, diğeri listeden katılır.';
   net.send({ t: 'profile', name: save.name, car: save.car, color: carColor(carById(save.car)) });
@@ -258,7 +259,7 @@ function renderRooms(list) {
   if (!list.length) { box.innerHTML = '<p class="muted">Henüz açık oda yok. Bir oda kur!</p>'; return; }
   for (const r of list) {
     const d = document.createElement('div'); d.className = 'room';
-    d.innerHTML = `<div><b>${escapeHtml(r.host)}</b> <span class="muted">· ${r.count} kişi · Bölüm ${r.level}</span></div>`;
+    d.innerHTML = `<div><b>${escapeHtml(r.host)}</b> <span class="muted">· ${r.count}${r.need ? "/" + r.need : ""} kişi · Bölüm ${r.level}</span></div>`;
     const b = document.createElement('button'); b.className = 'btn primary'; b.textContent = 'Katıl'; b.onclick = () => joinRoom(r.code);
     d.appendChild(b); box.appendChild(d);
   }
@@ -269,7 +270,7 @@ function profileFromInput() {
   net.send({ t: 'profile', name: save.name, car: save.car, color: carColor(carById(save.car)) });
 }
 function joinRoom(code) { initAudio(); sfx.click(); profileFromInput(); net.send({ t: 'join', code }); }
-$('mp-create').onclick = () => { initAudio(); sfx.click(); profileFromInput(); net.send({ t: 'create', level: Math.min(save.unlocked, LEVELS.length) }); };
+$('mp-create').onclick = () => { initAudio(); sfx.click(); profileFromInput(); save.mpNeed = +$('mp-need').value || 2; persist(); net.send({ t: 'create', level: Math.min(save.unlocked, LEVELS.length), need: save.mpNeed }); };
 $('mp-join').onclick = () => { const c = $('mp-code').value.trim().toUpperCase(); if (c.length === 4) joinRoom(c); else toast('4 harfli oda kodunu yaz'); };
 $('mp-leave').onclick = () => { net.send({ t: 'leave' }); mpRoom = null; renderMpRoom(); };
 $('mp-back').onclick = () => { if (mpRoom) net.send({ t: 'leave' }); mpRoom = null; show('home'); };
@@ -319,8 +320,12 @@ function renderMpRoom() {
   const maxL = host ? Math.max(save.unlocked, mpRoom.level) : mpRoom.level;
   sel.innerHTML = LEVELS.filter(l => l.n <= maxL).map(l => `<option value="${l.n}">Bölüm ${l.n} – ${l.regionName}</option>`).join('');
   sel.value = mpRoom.level; sel.disabled = !host;
+  const need = Math.max(1, mpRoom.need || 1), n = mpRoom.players.length, full = n >= need;
+  $('mp-invite').classList.toggle('hidden', !host);
+  $('mp-count').innerHTML = `Oyuncular: <b>${n} / ${need}</b>`;
   $('mp-start').classList.toggle('hidden', !host);
-  $('mp-wait').textContent = host ? (mpRoom.players.length < 2 ? 'Diğer oyuncunun katılmasını bekle (tek başına da başlatabilirsin).' : 'Hazır olunca başlat!') : 'Oda sahibinin başlatması bekleniyor…';
+  $('mp-start').disabled = !full; $('mp-start').style.opacity = full ? 1 : 0.45;
+  $('mp-wait').textContent = host ? (full ? 'Herkes geldi, başlatabilirsin! 🏁' : `${need - n} kişi daha bekleniyor… Arkadaşlarını davet et.`) : (full ? 'Oda sahibinin başlatması bekleniyor…' : `Oyuncular bekleniyor (${n}/${need})… Sonra oda sahibi başlatacak.`);
 }
 net.on('open', () => $('mp-status').classList.add('on'));
 net.on('close', () => { $('mp-status').classList.remove('on'); if (screen === 'mp' && net.mode === 'ws') toast('Sunucu bağlantısı yok. Bilgisayarda "npm start" çalışıyor mu?'); });
@@ -328,7 +333,10 @@ net.on('rooms', (m) => renderRooms(m.list));
 net.on('room', (m) => { mpRoom = m; if (screen === 'mp') renderMpRoom(); });
 net.on('rooms', (m) => { if (net.mode === 'peer' && !m.list.length) $('mp-rooms').innerHTML = '<p class="muted">Arkadaşının oda kodunu aşağıya yaz 👇</p>'; });
 net.on('error', (m) => toast(m.msg));
-net.on('start', (m) => { mpResults = []; startRace(LEVELS[m.level - 1], { mp: true, seed: m.seed, players: m.players, countdown: m.countdown, t0: performance.now() }); });
+net.on('start', (m) => { mpResults = []; mpGo = null; startRace(LEVELS[m.level - 1], { mp: true, seed: m.seed, players: m.players, waitGo: true }); });
+// herkes yüklemeyi bitirince oda sahibi 'go' gönderir -> tüm cihazlarda geri sayım aynı anda başlar
+let mpGo = null;
+net.on('go', (m) => { mpGo = m; if (race && race.mp && race.state === 'wait') race.go((m.countdown || 3500) / 1000); });
 net.on('state', (m) => race?.remoteState(m));
 net.on('left', (m) => race?.removeRemote(m.id));
 net.on('finish', (m) => { mpResults = m.results; if (race?.ended || race?.state === 'finish') renderMpResults(false); for (const r of m.results) { const rr = race?.remotes.get(r.id); if (rr) rr.finished = true; } });
