@@ -193,6 +193,7 @@ export class Race {
     // içerik ve çarpışma
     this.track.update(this.dist, dt, this.time);
     if (running) this.collide();
+    this.track.writeStars();
     if (running && this.dist >= this.level.length) this.finish();
     if (this.state === 'finish' || this.state === 'crashed') { this.endT += dt; if (this.endT > 2.2 && !this.ended) { this.ended = true; this.o.onEnd?.(this.result()); } }
     // araba görseli
@@ -328,9 +329,8 @@ export class Race {
   // Tüm model/malzeme türlerini yükleme ekranında bir kez çiz: gölgelendirici derlemesi yarış sırasında olmasın
   async warmup() {
     const R = this.engine.renderer;
-    this.world.update(-this.dist, this.camera, 0); this.track.update(this.dist, 0, 0); this.updateCamera(0.016);
+    this.world.update(-this.dist, this.camera, 0); this.track.update(this.dist, 0, 0); this.track.writeStars(); this.updateCamera(0.016);
     const tmp = this.track.warmObjects();
-    for (const o of tmp) this.scene.add(o);
     if (R.compileAsync) await R.compileAsync(this.scene, this.camera); else R.compile(this.scene, this.camera);
     this.engine.render(this.scene, this.camera);
     this.track.releaseWarm(tmp);

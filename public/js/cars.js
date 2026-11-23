@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { assetURL } from './assets.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // Grab3D modelleri: CC0 (grab3d.com). CarConcept: Khronos glTF Sample Assets, CC-BY 4.0 (Darmstadt Graphics Group / Eric Chadwick).
 export const MODELS = {
@@ -193,7 +194,47 @@ function finishMaterials(tpl, color, finish, base) {
 }
 
 // Senkron örnek oluşturma (model önceden yüklenmiş olmalı)
+// Trafik araçları: tüm parçalar malzeme başına TEK geometride birleştirilir (çizim sayısı 10-15 kat azalır)
+const liteCache = new Map();
+function toFloat(g) {
+  const out = new THREE.BufferGeometry();
+  for (const name of ['position', 'normal', 'uv']) {
+    const a = g.attributes[name]; if (!a) continue;
+    const arr = new Float32Array(a.count * a.itemSize);
+    for (let i = 0; i < a.count; i++) for (let k = 0; k < a.itemSize; k++) arr[i * a.itemSize + k] = a.getComponent(i, k);
+    out.setAttribute(name, new THREE.BufferAttribute(arr, a.itemSize));
+  }
+  if (g.index) out.setIndex(Array.from(g.index.array)); return out;
+}
+function buildLite(key, color) {
+  const tpl = ready.get(key) || ready.get('hatchback'), ck = tpl.userData.key + '|' + color;
+  if (!liteCache.has(ck)) {
+    const base = color && color !== 'orig' ? paintedMaterials(tpl, color) : null;
+    const root = tpl.clone(true); root.updateMatrixWorld(true);
+    const groups = new Map();
+    root.traverse(o => {
+      if (!o.isMesh) return;
+      const mats = Array.isArray(o.material) ? o.material : [o.material]; if (mats.length > 1) return;
+      let mat = (base && base.get(o.material)) || o.material;
+      const mk = (mat.name || '').replace(/\.\d+$/, '') + '|' + (mat.color ? mat.color.getHexString() : '') + '|' + (mat.map ? mat.map.uuid : '');
+      if (!groups.alias) groups.alias = new Map(); if (groups.alias.has(mk)) mat = groups.alias.get(mk); else groups.alias.set(mk, mat); // aynı görünen tekrar malzemeleri birleştir
+      const g = toFloat(o.geometry); g.applyMatrix4(o.matrixWorld);
+      if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+      if (!g.attributes.normal) g.computeVertexNormals();
+      (groups.get(mat) || groups.set(mat, []).get(mat)).push(g);
+    });
+    const parts = []; for (const [mat, list] of groups) { const m = mergeGeometries(list, false); if (m) parts.push({ geo: m, mat }); }
+    liteCache.set(ck, { parts, ud: tpl.userData });
+  }
+  const { parts, ud } = liteCache.get(ck), car = new THREE.Group(), inner = new THREE.Group(); car.add(inner);
+  for (const p of parts) inner.add(new THREE.Mesh(p.geo, p.mat));
+  car.userData = { ...ud, wheels: [], body: inner };
+  car.add(shadowBlob(ud));
+  return car;
+}
+
 export function buildCar(key, color, opts = {}) {
+  if (opts.lite && !opts.wheels) { try { return buildLite(key, color); } catch (e) { console.warn('lite', e); } }
   const tpl = ready.get(key) || ready.get('hatchback') || ready.values().next().value;
   const car = tpl.clone(true);
   const base = color && color !== 'orig' ? paintedMaterials(tpl, color) : null;

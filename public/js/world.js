@@ -124,6 +124,11 @@ export class World {
     // kaldırım taşı (bordür)
     const curbMat = new THREE.MeshStandardMaterial({ color: theme === 'snow' ? 0xdfe6ee : 0xb9b6ae, roughness: 0.8 });
     this.curbs = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.16, RL), curbMat); m.position.set(s * (ROAD.halfWidth + 0.1), 0.06, 0); m.receiveShadow = true; scene.add(m); return m; });
+    // metal korkuluk: 2 sürekli kiriş + sık direk (çok ucuz)
+    const railMat = new THREE.MeshStandardMaterial({ color: 0xc7ccd2, metalness: 0.85, roughness: 0.32 });
+    this.rails = theme === 'village' ? [] : [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.32, RL), railMat); m.position.set(s * 6.78, 0.62, 0); m.castShadow = true; scene.add(m); return m; });
+    const pg = new THREE.BoxGeometry(0.12, 0.75, 0.12); pg.translate(0, 0.375, 0);
+    this.posts = new THREE.InstancedMesh(pg, new THREE.MeshStandardMaterial({ color: 0x7d838a, metalness: 0.6, roughness: 0.5 }), 400); this.posts.count = 0; this.posts.frustumCulled = false; scene.add(this.posts);
     // dekor
     this.props = new PropInstancer(scene, Math.round(70 * q.props));
     for (const n of THEME_PROPS[theme]) this.props.ensure(n); // tüm örnek kümeleri baştan (yarış ortasında oluşturma takılması olmasın)
@@ -192,11 +197,8 @@ export class World {
     const scatter = (names, n, a, b) => { for (let i = 0; i < n; i++) { const s = side(), nm = pick(names); P(nm, s * far(a, b), z0 - r() * CL, H(nm)); } };
     const house = (names, a, b, h) => { const s = side(), nm = pick(names); P(nm, s * (a + r() * (b - a)), z0 - 6 - r() * (CL - 12), h ?? 7, s > 0 ? -Math.PI / 2 : Math.PI / 2); };
     // korkuluk (bariyer) sırası
-    const rail = propReady('guard-rail');
-    if (rail && th !== 'village') {
-      const sz = rail.size, len = Math.max(sz.x, sz.z) * (0.82 / sz.y), along = sz.x > sz.z;
-      for (const s of [-1, 1]) for (let z = z0; z > z0 - CL; z -= len * 0.98) items.push({ name: 'guard-rail', x: s * 6.75, z: z - len / 2, h: 0.82, ry: along ? Math.PI / 2 : 0, y: 0 });
-    }
+    // korkuluk direkleri (kirişler ayrı, sürekli kutu olarak çizilir)
+    if (th !== 'village') for (const s of [-1, 1]) for (let z = z0; z > z0 - CL; z -= 4) items.push({ post: true, x: s * 6.85, z });
     if (th === 'village') {
       scatter(['grass-clump'], Math.round(26 * this.engine.quality.grass), 7, 18);
       scatter(['oak-tree', 'apple-tree', 'olive-tree', 'oak-tree', 'bush'], Math.round(9 * q), 11, 90);
@@ -227,8 +229,8 @@ export class World {
     } else if (th === 'city') {
       for (const s of [-1, 1]) {
         let z = z0 - r() * 4;
-        while (z > z0 - CL) { const nm = pick(['shop-front', 'corner-shop', 'apartment-building', 'shop-front']); const h = nm === 'apartment-building' ? 24 : 11 + r() * 2; P(nm, s * (15 + h * 0.18), z - 7, h, s > 0 ? -Math.PI / 2 : Math.PI / 2); z -= 16 + r() * 4; }
-        if (r() < 0.6) P(pick(['office-tower', 'high-rise-apartment', 'skyscraper']), s * (40 + r() * 30), z0 - r() * CL, 40 + r() * 30, s > 0 ? -Math.PI / 2 : Math.PI / 2);
+        while (z > z0 - CL) { const nm = pick(['shop-front', 'corner-shop', 'apartment-building', 'shop-front']); const h = nm === 'apartment-building' ? 24 : 11 + r() * 2; P(nm, s * (15 + h * 0.18), z - 7, h, s > 0 ? -Math.PI / 2 : Math.PI / 2); z -= (16 + r() * 4) / Math.min(1, q * 1.5); }
+        if (r() < 0.6 * Math.min(1, q * 1.2)) P(pick(['office-tower', 'high-rise-apartment', 'skyscraper']), s * (40 + r() * 30), z0 - r() * CL, 40 + r() * 30, s > 0 ? -Math.PI / 2 : Math.PI / 2);
       }
       if (r() < 0.5) { const s = side(); P(pick(['bus-stop-shelter', 'park-bench', 'fire-hydrant']), s * 8.4, z0 - r() * CL, 1, s > 0 ? -Math.PI / 2 : Math.PI / 2); }
       if (r() < 0.6) { const s = side(); P('oak-tree', s * (8.8 + r()), z0 - r() * CL, 6 + r() * 2); }
@@ -251,9 +253,10 @@ export class World {
     for (const k of this.chunks.keys()) if (k < minK - 1 || k > maxK + 1) this.chunks.delete(k);
     const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
     this.props.begin();
-    const signN = this.signInst.map(() => 0); let poleN = 0; const bN = (this.bVariants || []).map(() => 0); const glows = [];
+    const signN = this.signInst.map(() => 0); let poleN = 0, postN = 0; const bN = (this.bVariants || []).map(() => 0); const glows = [];
     for (let k = minK; k <= maxK; k++) for (const it of this.chunks.get(k) || []) {
       if (it.name) this.props.add(it.name, it.x, it.y || 0, it.z, it.h, it.ry);
+      else if (it.post) { if (postN < 400) { m.makeTranslation(it.x, 0, it.z); this.posts.setMatrixAt(postN++, m); } }
       else if (it.glow) glows.push(it.x, it.y, it.z);
       else if (it.sign !== undefined) {
         const im = this.signInst[it.sign]; if (signN[it.sign] >= 30) continue;
@@ -266,6 +269,7 @@ export class World {
     this.props.end();
     this.signInst.forEach((im, i) => { im.count = signN[i]; im.instanceMatrix.needsUpdate = true; });
     this.poles.count = poleN; this.poles.instanceMatrix.needsUpdate = true;
+    this.posts.count = postN; this.posts.instanceMatrix.needsUpdate = true;
     (this.bVariants || []).forEach((b, i) => { b.im.count = bN[i]; b.im.instanceMatrix.needsUpdate = true; });
     if (this.glow) { const a = this.glowGeo.attributes.position; a.array.fill(0); a.array.set(glows.slice(0, 1800)); a.needsUpdate = true; this.glowGeo.setDrawRange(0, Math.min(600, glows.length / 3)); }
   }
@@ -274,6 +278,7 @@ export class World {
     this.terrain.position.z = Math.round(pz / PERIOD) * PERIOD;
     this.road.position.z = Math.round(pz / 12) * 12 - this.roadLen / 2 + 120;
     for (const c of this.curbs) c.position.z = this.road.position.z;
+    for (const c of this.rails) c.position.z = this.road.position.z;
     const s = this.sun; s.target.position.set(0, 0, pz - 22); s.position.copy(s.target.position).addScaledVector(this.sunDir, 120);
     const ck = Math.floor(-pz / this.chunkLen), range = this.engine.quality.range;
     const minK = ck - 1, maxK = ck + Math.ceil(range / this.chunkLen), key = minK + ':' + maxK;

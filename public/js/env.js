@@ -20,11 +20,11 @@ export const PROPS = {
   'construction-barrier': { h: [1.1, 1.1] }, 'jersey-barrier': { h: [0.95, 0.95] }, 'traffic-barrel': { h: [1.05, 1.05] }, 'grass-clump': { h: [0.5, 0.9] },
 };
 export const THEME_PROPS = {
-  village: ['oak-tree', 'apple-tree', 'cypress-tree', 'olive-tree', 'bush', 'cottage-house', 'stone-house', 'farmhouse', 'barn', 'windmill', 'silo', 'hay-bale', 'wooden-fence', 'village-well', 'sunflower', 'cow', 'power-pole', 'street-light', 'grass-clump', 'guard-rail'],
-  forest: ['pine-tree', 'spruce-tree', 'birch-tree', 'autumn-tree', 'tree-stump', 'log-cabin', 'boulder-rock-set', 'bush', 'grass-clump', 'guard-rail', 'small-rock-set'],
-  desert: ['cactus', 'barrel-cactus', 'palm-tree', 'rocky-outcrop', 'adobe-house', 'small-rock-set', 'boulder-rock-set', 'guard-rail', 'power-pole'],
-  snow: ['snowy-pine-tree', 'snowy-cabin', 'alpine-chalet', 'snowman', 'boulder-rock-set', 'guard-rail', 'street-light'],
-  city: ['apartment-building', 'high-rise-apartment', 'office-tower', 'skyscraper', 'shop-front', 'corner-shop', 'street-light', 'bus-stop-shelter', 'fire-hydrant', 'traffic-light', 'park-bench', 'oak-tree', 'guard-rail'],
+  village: ['oak-tree', 'apple-tree', 'cypress-tree', 'olive-tree', 'bush', 'cottage-house', 'stone-house', 'farmhouse', 'barn', 'windmill', 'silo', 'hay-bale', 'wooden-fence', 'village-well', 'sunflower', 'cow', 'power-pole', 'street-light', 'grass-clump'],
+  forest: ['pine-tree', 'spruce-tree', 'birch-tree', 'autumn-tree', 'tree-stump', 'log-cabin', 'boulder-rock-set', 'bush', 'grass-clump', 'small-rock-set'],
+  desert: ['cactus', 'barrel-cactus', 'palm-tree', 'rocky-outcrop', 'adobe-house', 'small-rock-set', 'boulder-rock-set', 'power-pole'],
+  snow: ['snowy-pine-tree', 'snowy-cabin', 'alpine-chalet', 'snowman', 'boulder-rock-set', 'street-light'],
+  city: ['apartment-building', 'high-rise-apartment', 'office-tower', 'skyscraper', 'shop-front', 'corner-shop', 'street-light', 'bus-stop-shelter', 'fire-hydrant', 'traffic-light', 'park-bench', 'oak-tree'],
 };
 export const OBSTACLE_PROPS = ['traffic-cone', 'road-barrier', 'construction-barrier', 'jersey-barrier', 'traffic-barrel', 'hay-bale', 'tree-stump', 'boulder-rock-set', 'snowman'];
 

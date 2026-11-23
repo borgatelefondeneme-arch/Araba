@@ -204,6 +204,7 @@ export class TrackView {
     this.scene = scene; this.level = level;
     const g = generateLevel(level, seed); this.ents = g.ents; this.totalStars = g.totalStars;
     this.pools = new Map(); this.next = 0; this.active = [];
+    const S = res(); this.starIM = new THREE.InstancedMesh(S.starGeo, S.gold, 400); this.starIM.count = 0; this.starIM.frustumCulled = false; this.starIM.castShadow = false; scene.add(this.starIM);
     this.r = rng(seed + 5);
   }
   acquire(key, make) {
@@ -219,6 +220,7 @@ export class TrackView {
         e.hw = obj.userData.halfW; e.hl = obj.userData.halfL; e.h = obj.userData.height + 0.15; break;
       case 'ramp': key = 'ramp'; obj = this.acquire(key, makeRamp); break;
       case 'finish': key = 'finish'; obj = this.acquire(key, makeFinish); break;
+      case 'star': key = 'star'; obj = this.acquire(key, () => new THREE.Object3D()); break; // yıldızlar tek seferde (instancing) çizilir
       default: key = e.kind; obj = this.acquire(key, () => makeCollectible(e.kind));
     }
     obj.rotation.set(0, 0, 0); obj.scale.setScalar(1);
@@ -266,5 +268,10 @@ export class TrackView {
       if (e.z < dist - 25 || (e.fly && e.fly.t !== undefined && (e.fly.t += dt) > 2.5)) { this.despawn(e); this.active.splice(i, 1); }
     }
   }
-  dispose() { for (const e of this.active) this.despawn(e); for (const p of this.pools.values()) for (const o of p) this.scene.remove(o); }
+  writeStars() {
+    let n = 0; const im = this.starIM;
+    for (const e of this.active) { if (e.kind !== 'star' || !e.obj || !e.obj.visible || n >= 400) continue; e.obj.updateMatrix(); im.setMatrixAt(n++, e.obj.matrix); }
+    im.count = n; im.instanceMatrix.needsUpdate = true;
+  }
+  dispose() { for (const e of this.active) this.despawn(e); for (const p of this.pools.values()) for (const o of p) this.scene.remove(o); this.scene.remove(this.starIM); this.starIM.dispose(); }
 }
