@@ -8,7 +8,7 @@ import { assetURL } from './assets.js';
 export const THEMES = {
   village: { sky: 'village', u: 0.595, v: 0.234, horizon: 0xc4ccd6, fogD: 0.0028, sun: 0xfff0d8, sunI: 3.2, hemiS: 0xcfe4ff, hemiG: 0x5a6b3a, hemiI: 0.5, env: 0.9, exposure: 1.0, ground: 'leafy_grass', groundTint: 0xe6f0d0, hills: { near: 18, far: 90 }, bloom: 0 },
   forest: { sky: 'forest', u: 0.596, v: 0.445, horizon: 0xd6dde0, fogD: 0.0034, sun: 0xffd2a0, sunI: 2.8, hemiS: 0xffe2c4, hemiG: 0x2f4020, hemiI: 0.5, env: 0.85, exposure: 1.0, ground: 'forest_floor', groundTint: 0xffffff, hills: { near: 26, far: 140 }, bloom: 0 },
-  desert: { sky: 'desert', u: 0.600, v: 0.450, horizon: 0xd9e2e4, fogD: 0.0026, sun: 0xfff1dc, sunI: 3.6, hemiS: 0xfff0d8, hemiG: 0xb88a50, hemiI: 0.5, env: 0.9, exposure: 0.95, ground: 'aerial_sand', groundTint: 0xffffff, hills: { near: 10, far: 70, dunes: true }, bloom: 0 },
+  desert: { sky: 'desert', u: 0.600, v: 0.450, horizon: 0xd9e2e4, fogD: 0.0026, sun: 0xfff1dc, sunI: 3.6, hemiS: 0xfff0d8, hemiG: 0xb88a50, hemiI: 0.5, env: 0.9, exposure: 0.95, ground: 'aerial_sand', groundTint: 0xf3dcb4, hills: { near: 10, far: 70, dunes: true }, bloom: 0 },
   snow: { sky: 'snow', u: 0.582, v: 0.372, horizon: 0xdadce0, fogD: 0.0042, sun: 0xeef4ff, sunI: 2.0, hemiS: 0xe6efff, hemiG: 0xb8c4d0, hemiI: 0.6, env: 1.0, exposure: 1.0, ground: 'snow_02', groundTint: 0xffffff, hills: { near: 30, far: 240 }, bloom: 0 },
   city: { sky: 'city', night: true, u: 0.599, v: 0.406, horizon: 0x1a2230, fogD: 0.0050, sun: 0x9fb4ff, sunI: 0.6, hemiS: 0x2a3a70, hemiG: 0x101018, hemiI: 0.45, env: 0.5, exposure: 1.05, ground: 'grass_path_2', groundTint: 0x7a8a7a, hills: { near: 0, far: 0 }, bloom: 0.8 },
 };
@@ -175,7 +175,7 @@ export class World {
     const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
     const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(0.3, 'rgba(255,200,120,0.5)'); g.addColorStop(1, 'rgba(255,180,90,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
     this.glowGeo = new THREE.BufferGeometry(); this.glowGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(600 * 3), 3));
-    this.glow = new THREE.Points(this.glowGeo, new THREE.PointsMaterial({ map: new THREE.CanvasTexture(c), size: 7, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true }));
+    this.glow = new THREE.Points(this.glowGeo, new THREE.PointsMaterial({ map: new THREE.CanvasTexture(c), size: 3.2, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true }));
     this.glow.frustumCulled = false; this.scene.add(this.glow);
   }
 
@@ -280,6 +280,12 @@ export class World {
 
   dispose() {
     this.envRT?.dispose();
+    // örnekleme tamponları ve bu dünyaya ait doku/malzemeler (paylaşılan model malzemeleri hariç)
+    this.scene.traverse(o => {
+      if (o.isInstancedMesh) o.dispose();
+      if ((o.isInstancedMesh && !o.userData.shared) || o === this.glow) { const m = o.material; if (m && !m.userData?.shared) { for (const k of ['map', 'emissiveMap']) if (m[k] && !m[k].userData?.shared) m[k].dispose(); } }
+    });
+    this.glowGeo?.dispose(); this.poles?.geometry.dispose();
     this.terrain.geometry.dispose(); this.road.material.map?.dispose(); this.road.material.normalMap?.dispose(); this.road.material.roughnessMap?.dispose();
   }
 }

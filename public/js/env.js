@@ -36,7 +36,7 @@ export function loadProp(name) {
     const root = g.scene; root.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(root), size = box.getSize(new THREE.Vector3());
     const parts = [];
-    root.traverse(o => { if (o.isMesh) { parts.push({ geometry: o.geometry, material: o.material, local: o.matrixWorld.clone() }); } });
+    root.traverse(o => { if (o.isMesh) { const mats = Array.isArray(o.material) ? o.material : [o.material]; for (const m of mats) { m.userData.shared = true; for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) m[k].userData.shared = true; } parts.push({ geometry: o.geometry, material: o.material, local: o.matrixWorld.clone() }); } });
     // tabanı (0,0,0)'a, merkezi eksene getir
     const base = new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
     for (const pt of parts) pt.local.premultiply(base);
@@ -67,7 +67,7 @@ export class PropInstancer {
     if (this.sets.has(name)) return this.sets.get(name);
     const t = ready.get(name); if (!t) return null;
     const cap = PROPS[name]?.big ? Math.ceil(this.cap / 3) : name === 'grass-clump' || name === 'sunflower' ? this.cap * 6 : name === 'guard-rail' ? 160 : this.cap;
-    const meshes = t.parts.map(p => { const im = new THREE.InstancedMesh(p.geometry, p.material, cap); im.castShadow = name !== 'grass-clump' && name !== 'sunflower'; im.receiveShadow = true; im.frustumCulled = false; im.count = 0; this.scene.add(im); return { im, local: p.local }; });
+    const meshes = t.parts.map(p => { const im = new THREE.InstancedMesh(p.geometry, p.material, cap); im.userData.shared = true; im.castShadow = name !== 'grass-clump' && name !== 'sunflower'; im.receiveShadow = true; im.frustumCulled = false; im.count = 0; this.scene.add(im); return { im, local: p.local }; });
     const set = { t, meshes, cap, n: 0 }; this.sets.set(name, set); return set;
   }
   begin() { for (const s of this.sets.values()) s.n = 0; }

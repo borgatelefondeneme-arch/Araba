@@ -28,6 +28,8 @@ export class Engine {
     this.pr = Math.min(devicePixelRatio || 1, this.quality.pr);
     this.resize(); addEventListener('resize', () => this.resize());
     this.fpsAcc = 0; this.fpsN = 0; this.adaptT = 0;
+    // grafik bağlamı kaybolursa (bellek dolarsa) sayfayı yeniden yükle
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setTimeout(() => location.reload(), 600); });
   }
   resize() {
     const w = innerWidth, h = innerHeight;
