@@ -28,6 +28,7 @@ const server = http.createServer((req, res) => {
   if (url === '/') url = '/index.html';
   let base = PUBLIC, rel = url;
   if (url.startsWith('/vendor/three/')) { base = THREE_DIR; rel = url.slice('/vendor/three'.length); }
+  else if (url.startsWith('/vendor/bvh/')) { base = path.join(__dirname, 'node_modules', 'three-mesh-bvh'); rel = url.slice('/vendor/bvh'.length); }
   const file = path.normalize(path.join(base, rel));
   if (!file.startsWith(base)) { res.writeHead(403); res.end(); return; }
   send(res, file);

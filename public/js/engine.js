@@ -6,9 +6,10 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 const QUALITY = {
-  low: { pr: 1, shadows: 0, bloom: false, props: 0.5, range: 200, aa: false },
-  medium: { pr: 1.5, shadows: 1024, bloom: true, props: 0.8, range: 280, aa: true },
-  high: { pr: 2, shadows: 2048, bloom: true, props: 1, range: 360, aa: true },
+  // props: dekor yoğunluğu, range: görüş mesafesi (m), propShadows: ağaç/ev gölgesi, grass: çim/ayçiçeği yoğunluğu
+  low: { pr: 1, shadows: 0, bloom: false, props: 0.35, range: 160, aa: false, propShadows: false, grass: 0, normals: false },
+  medium: { pr: 1.25, shadows: 1024, bloom: false, props: 0.55, range: 210, aa: false, propShadows: false, grass: 0.4, normals: false },
+  high: { pr: 2, shadows: 2048, bloom: true, props: 1, range: 340, aa: true, propShadows: true, grass: 1, normals: true },
 };
 
 export class Engine {
@@ -40,15 +41,18 @@ export class Engine {
     if (this.onResize) this.onResize(w, h);
   }
   setBloom(strength) { this.bloom.strength = strength; this.bloom.enabled = strength > 0; }
-  render(scene, camera, dt = 0.016) {
-    if (this.quality.bloom) { this.renderPass.scene = scene; this.renderPass.camera = camera; this.composer.render(dt); }
+  render(scene, camera) {
+    // bloom kapalıyken ek tam ekran geçişleri yapmadan doğrudan çiz (mobilde büyük kazanç)
+    if (this.quality.bloom && this.bloom.enabled) { this.renderPass.scene = scene; this.renderPass.camera = camera; this.composer.render(); }
     else this.renderer.render(scene, camera);
-    // uyarlanabilir çözünürlük: yavaş cihazlarda keskinliği düşür
-    this.fpsAcc += dt; this.fpsN++;
-    if (this.fpsAcc > 2) {
-      const fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0;
-      if (fps < 40 && this.pr > 0.8) { this.pr = Math.max(0.8, this.pr - 0.25); this.resize(); }
-      else if (fps > 57 && this.pr < Math.min(devicePixelRatio || 1, this.quality.pr)) { this.pr = Math.min(this.pr + 0.25, devicePixelRatio || 1, this.quality.pr); this.resize(); }
+    // uyarlanabilir çözünürlük: gerçek kare süresini ölç; sadece düşür (iniş-çıkış takılma yaratır)
+    const now = performance.now();
+    if (!this.fpsT0) { this.fpsT0 = now; this.fpsN = 0; return; }
+    this.fpsN++;
+    if (now - this.fpsT0 > 2500) {
+      const fps = this.fpsN * 1000 / (now - this.fpsT0); this.fpsT0 = now; this.fpsN = 0;
+      if (fps < 45 && this.pr > 0.75) { this.pr = Math.max(0.75, this.pr - 0.25); this.resize(); }
     }
   }
+  resetFps() { this.fpsT0 = 0; }
 }

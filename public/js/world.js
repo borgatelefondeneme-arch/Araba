@@ -1,7 +1,7 @@
 // Ortam: gerçek gökyüzü fotoğrafı (HDRI), tepeli arazi, PBR asfalt/zemin dokuları, 3D çevre modelleri (instanced)
 import * as THREE from 'three';
 import { makeFacadeTexture, makeWindowTexture, makeSignTexture, ROAD, rng } from './textures.js';
-import { PropInstancer, preloadProps, THEME_PROPS, OBSTACLE_PROPS, propReady } from './env.js';
+import { PropInstancer, preloadProps, THEME_PROPS, OBSTACLE_PROPS, propReady, setPropQuality } from './env.js';
 import { assetURL } from './assets.js';
 
 // Gökyüzü: Poly Haven CC0 HDRI'lerden üretilmiş fotoğraflar (public/sky). u,v: güneşin görüntüdeki yeri
@@ -22,7 +22,8 @@ function loadTex(url, srgb) {
   texCache.set(url, p); return p;
 }
 const loaded = {};
-export async function preloadWorld(theme) {
+export async function preloadWorld(theme, quality) {
+  if (quality) setPropQuality(quality);
   const T = THEMES[theme];
   const [sky, gd, gn, gr, ad, an, ar] = await Promise.all([
     loadTex(`sky/${T.sky}.jpg`, true),
@@ -125,6 +126,7 @@ export class World {
     this.curbs = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.16, RL), curbMat); m.position.set(s * (ROAD.halfWidth + 0.1), 0.06, 0); m.receiveShadow = true; scene.add(m); return m; });
     // dekor
     this.props = new PropInstancer(scene, Math.round(70 * q.props));
+    for (const n of THEME_PROPS[theme]) this.props.ensure(n); // tüm örnek kümeleri baştan (yarış ortasında oluşturma takılması olmasın)
     this.buildSigns();
     if (theme === 'city') this.buildCityBlocks();
     this.chunks = new Map(); this.chunkLen = 40; this.lastKey = '';
@@ -196,18 +198,18 @@ export class World {
       for (const s of [-1, 1]) for (let z = z0; z > z0 - CL; z -= len * 0.98) items.push({ name: 'guard-rail', x: s * 6.75, z: z - len / 2, h: 0.82, ry: along ? Math.PI / 2 : 0, y: 0 });
     }
     if (th === 'village') {
-      scatter(['grass-clump'], Math.round(26 * q), 7, 18);
+      scatter(['grass-clump'], Math.round(26 * this.engine.quality.grass), 7, 18);
       scatter(['oak-tree', 'apple-tree', 'olive-tree', 'oak-tree', 'bush'], Math.round(9 * q), 11, 90);
       if (r() < 0.6) { const s = side(), x0 = s * (12 + r() * 3); for (let i = 0; i < 5; i++) P('cypress-tree', x0, z0 - i * 7 - r() * 2, H('cypress-tree')); }
       if (r() < 0.75) house(['cottage-house', 'stone-house', 'farmhouse'], 18, 34, 6.5 + r() * 1.5);
       if (r() < 0.25) house(['barn', 'silo', 'windmill'], 34, 70, 10 + r() * 3);
-      if (r() < 0.35) { const s = side(), x0 = s * (16 + r() * 10), zc = z0 - 8 - r() * 20; for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) P('sunflower', x0 + s * j * 1.4 + (r() - 0.5) * 0.4, zc - i * 1.3, H('sunflower'), r() * 0.6 - 0.3 + (s > 0 ? -1.2 : 1.2)); }
+      if (r() < 0.35 * Math.min(1, this.engine.quality.grass * 2)) { const s = side(), x0 = s * (16 + r() * 10), zc = z0 - 8 - r() * 20, nr = this.engine.quality.grass >= 1 ? 7 : 4, nc = this.engine.quality.grass >= 1 ? 4 : 3; for (let i = 0; i < nr; i++) for (let j = 0; j < nc; j++) P('sunflower', x0 + s * j * 1.4 + (r() - 0.5) * 0.4, zc - i * 1.3, H('sunflower'), r() * 0.6 - 0.3 + (s > 0 ? -1.2 : 1.2)); }
       if (r() < 0.3) { const s = side(); P('cow', s * (14 + r() * 14), z0 - r() * CL, 1.55); }
       if (r() < 0.35) { const s = side(); P(pick(['hay-bale', 'hay-bale', 'village-well']), s * (12 + r() * 10), z0 - r() * CL, r() < 0.7 ? 1.5 : 3.2); }
       if (r() < 0.5) { const s = side(), x = s * (8.6 + r() * 0.4), zc = z0 - r() * 30; for (let i = 0; i < 4; i++) P('wooden-fence', x, zc - i * 2.6, 1.15, 0); }
       P('power-pole', 9.6, z0 - 20, 9.5, 0);
     } else if (th === 'forest') {
-      scatter(['grass-clump'], Math.round(16 * q), 7, 16);
+      scatter(['grass-clump'], Math.round(16 * this.engine.quality.grass), 7, 16);
       scatter(['pine-tree', 'spruce-tree', 'pine-tree', 'birch-tree', 'autumn-tree'], Math.round(22 * q), 9.5, 85);
       scatter(['tree-stump', 'small-rock-set', 'boulder-rock-set', 'bush'], Math.round(5 * q), 8, 30);
       if (r() < 0.12) house(['log-cabin'], 20, 34, 6.5);

@@ -13,7 +13,7 @@ export class Showroom {
     s.environment = pm.fromScene(new RoomEnvironment(), 0.03).texture; s.environmentIntensity = 0.7; pm.dispose();
     this.camera = new THREE.PerspectiveCamera(35, engine.aspect, 0.1, 200);
     const sun = new THREE.DirectionalLight(0xffe2b8, 2.6); sun.position.set(-7, 9, 4); sun.castShadow = engine.quality.shadows > 0;
-    sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
+    sun.shadow.mapSize.set(engine.quality.shadows || 1024, engine.quality.shadows || 1024); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02; sun.shadow.radius = 4;
     const sc = sun.shadow.camera; sc.left = sc.bottom = -6; sc.right = sc.top = 6; sc.near = 1; sc.far = 30; s.add(sun);
     s.add(new THREE.HemisphereLight(0xbfd8ff, 0x6b5a40, 0.9));
     const fill = new THREE.DirectionalLight(0xcfe0ff, 0.7); fill.position.set(5, 3, 6); s.add(fill);

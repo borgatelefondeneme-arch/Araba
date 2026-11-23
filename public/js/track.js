@@ -227,6 +227,18 @@ export class TrackView {
     e.obj = obj; e.key = key; e.alive = true; e.active = false; e.fly = null; e.collectT = 0;
     this.active.push(e);
   }
+  // ısınma: bu bölümde çıkabilecek her nesne türünden birer tane (sonra havuza döner)
+  warmObjects() {
+    const seen = new Set(), out = [];
+    for (const e of this.ents) {
+      const key = e.kind === 'obst' ? 'o:' + e.type : e.kind === 'traffic' ? 't:' + e.ttype + e.color : e.kind;
+      if (seen.has(key)) continue; seen.add(key);
+      const tmp = { ...e }; this.spawn(tmp); this.active.pop();
+      tmp.obj.position.set(0, -50, 30 - this.active.length); out.push(tmp);
+    }
+    return out;
+  }
+  releaseWarm(list) { for (const e of list) this.despawn(e); }
   despawn(e) { if (e.obj) this.release(e.key, e.obj); e.obj = null; }
   update(dist, dt, time) {
     while (this.next < this.ents.length && this.ents[this.next].z < dist + 280) this.spawn(this.ents[this.next++]);

@@ -181,7 +181,7 @@ async function startRace(level, o) {
   screen = 'race'; raceMode = o; currentLevel = level; paused = false;
   const car = carById(save.car);
   const players = (o.players || []).map(p => ({ ...p, model: carById(p.car).type }));
-  try { await Promise.all([preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme)]); }
+  try { await Promise.all([preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme, engine.quality)]); }
   catch (e) { console.warn(e); toast('Araç modelleri yüklenemedi'); }
   if (screen !== 'race' || raceMode !== o) return;
   race = new Race(engine, {
@@ -189,6 +189,9 @@ async function startRace(level, o) {
     seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: o.mp ? Math.max(1.5, o.countdown / 1000 - (performance.now() - o.t0) / 1000) : 3.2,
     onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
   });
+  // gölgelendiricileri yükleme ekranındayken derle (yarış ortasında donma olmasın)
+  try { await race.warmup(); } catch (e) { console.warn('warmup', e); }
+  engine.resetFps();
   $('loading').classList.add('hidden');
 }
 function raceEnded(r) {

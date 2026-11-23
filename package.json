@@ -18,6 +18,7 @@
   "homepage": "https://github.com/borgatelefondeneme-arch/Araba#readme",
   "dependencies": {
     "three": "^0.187.0",
+    "three-mesh-bvh": "^0.9.18",
     "ws": "^8.23.0"
   },
   "private": true,

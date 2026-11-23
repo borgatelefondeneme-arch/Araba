@@ -1,6 +1,8 @@
 // Araç modifiyeleri: yükseltmeler ve aksesuarlar arabanın gövdesine "yapışık" görünür parçalar olarak eklenir.
 // Gövde yüzeyi ışın (raycast) ile bulunur; şerit ve çıkartmalar yüzeyin eğrisini takip eder.
 import * as THREE from 'three';
+import { computeBoundsTree, acceleratedRaycast } from 'three-mesh-bvh';
+THREE.BufferGeometry.prototype.computeBoundsTree = computeBoundsTree;
 
 const ray = new THREE.Raycaster();
 const M = {
@@ -18,6 +20,7 @@ class Surface {
     this.car = car; car.updateMatrixWorld(true);
     this.inv = car.matrixWorld.clone().invert();
     this.meshes = []; car.userData.body.traverse(o => { if (o.isMesh && o.visible) this.meshes.push(o); });
+    this.ready = false;
     const ud = car.userData; this.L = ud.halfL; this.W = ud.halfW; this.H = ud.height;
     this.memo = MEMO.get(ud.key) || new Map(); MEMO.set(ud.key, this.memo); // yüzey sorguları model başına bir kez hesaplanır
   }
@@ -27,6 +30,10 @@ class Surface {
     const r = this.castRaw(o, d); this.memo.set(key, r && { p: r.p.clone(), n: r.n.clone() }); return r;
   }
   castRaw(o, d) {
+    if (!this.ready) { // ilk ışında hızlandırma ağaçlarını kur (geometri başına bir kez)
+      for (const ms of this.meshes) { if (!ms.geometry.boundsTree) { try { ms.geometry.computeBoundsTree(); } catch {} } ms.raycast = acceleratedRaycast; }
+      this.ready = true; ray.firstHitOnly = true;
+    }
     const m = this.car.matrixWorld;
     ray.set(o.clone().applyMatrix4(m), d.clone().transformDirection(m)); ray.far = 20;
     const h = ray.intersectObjects(this.meshes, false)[0]; if (!h) return null;
