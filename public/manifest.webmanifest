@@ -1,0 +1,10 @@
+{
+  "name": "Turbo Köy",
+  "short_name": "Turbo Köy",
+  "start_url": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#0e1420",
+  "theme_color": "#0e1420",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

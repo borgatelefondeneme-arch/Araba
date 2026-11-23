@@ -1,0 +1,24 @@
+{
+  "name": "turbo-koy",
+  "version": "1.0.0",
+  "description": "Telefon ve tablette yerel ağda birlikte oynanan 3D araba yarışı",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/borgatelefondeneme-arch/Araba.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/borgatelefondeneme-arch/Araba/issues"
+  },
+  "homepage": "https://github.com/borgatelefondeneme-arch/Araba#readme",
+  "dependencies": {
+    "three": "^0.187.0",
+    "ws": "^8.23.0"
+  },
+  "private": true
+}

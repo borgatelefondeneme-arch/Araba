@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0e1420">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg">
+<title>Turbo Köy</title>
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="touch" class="hidden"></div>
+
+<!-- Üst bar: cüzdan -->
+<div id="wallet" class="wallet">
+  <span class="pill"><b class="ic star">★</b><span id="w-stars">0</span></span>
+  <span class="pill"><b class="ic dia">◆</b><span id="w-dias">0</span></span>
+</div>
+
+<!-- Ana menü -->
+<section id="home" class="screen">
+  <div class="logo"><span>TURBO</span><span class="b">KÖY</span></div>
+  <div class="menu">
+    <button class="btn big primary" data-go="map">▶ Oyna</button>
+    <button class="btn big" data-go="garage">🚗 Garaj</button>
+    <button class="btn big mp" data-go="mp">👨‍👧 Birlikte Oyna</button>
+    <button class="btn small ghost" data-go="settings">⚙ Ayarlar</button>
+  </div>
+</section>
+
+<!-- Harita -->
+<section id="map" class="screen hidden">
+  <header class="bar"><button class="btn icon" data-go="home">←</button><h2>Köy Haritası</h2><span></span></header>
+  <div id="map-wrap" class="map-wrap"></div>
+</section>
+
+<!-- Bölüm başlangıç kartı -->
+<div id="level-card" class="modal hidden">
+  <div class="card">
+    <h2 id="lc-title">Bölüm</h2>
+    <p id="lc-region" class="muted"></p>
+    <div id="lc-stars" class="rating"></div>
+    <ul class="info">
+      <li>📏 <span id="lc-len"></span></li>
+      <li>🏆 Ödül: <span id="lc-reward"></span></li>
+    </ul>
+    <p class="hint">Kaydır: ⬅️➡️ şerit, ⬆️ zıpla, ⬇️ nitro<br>Ekranın sağına/soluna dokunmak da şerit değiştirir.</p>
+    <div class="row"><button class="btn" id="lc-close">Kapat</button><button class="btn primary" id="lc-go">Yarış! 🏁</button></div>
+  </div>
+</div>
+
+<!-- Garaj -->
+<section id="garage" class="screen hidden">
+  <header class="bar"><button class="btn icon" data-go="home">←</button><h2>Garaj</h2><span></span></header>
+  <div class="garage">
+    <div class="car-nav">
+      <button class="btn icon" id="g-prev">‹</button>
+      <div class="car-title"><h3 id="g-name"></h3><div id="g-lock" class="muted"></div></div>
+      <button class="btn icon" id="g-next">›</button>
+    </div>
+    <div class="panel">
+      <div id="g-colors" class="colors"></div>
+      <div id="g-action"></div>
+      <div id="g-upgrades" class="upgrades"></div>
+    </div>
+  </div>
+</section>
+
+<!-- Birlikte oyna -->
+<section id="mp" class="screen hidden">
+  <header class="bar"><button class="btn icon" id="mp-back">←</button><h2>Birlikte Oyna</h2><span id="mp-status" class="dot"></span></header>
+  <div class="panel center">
+    <div id="mp-lobby-list">
+      <label class="field">Adın <input id="mp-name" maxlength="16"></label>
+      <button class="btn big primary" id="mp-create">➕ Oda Kur</button>
+      <h3>Açık Odalar</h3>
+      <div id="mp-rooms" class="rooms"><p class="muted">Oda aranıyor…</p></div>
+      <div class="row"><input id="mp-code" placeholder="KOD" maxlength="4"><button class="btn" id="mp-join">Katıl</button></div>
+      <p class="hint">Tüm cihazlar aynı Wi-Fi'de olmalı. Bir cihaz oda kurar, diğeri listeden katılır.</p>
+    </div>
+    <div id="mp-room" class="hidden">
+      <div class="room-code">Oda: <b id="mp-rcode"></b></div>
+      <div id="mp-players" class="players"></div>
+      <div id="mp-level-box"><label class="field">Bölüm <select id="mp-level"></select></label></div>
+      <p id="mp-wait" class="muted"></p>
+      <div class="row"><button class="btn" id="mp-leave">Odadan Çık</button><button class="btn primary" id="mp-start">Başlat 🏁</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- Ayarlar -->
+<section id="settings" class="screen hidden">
+  <header class="bar"><button class="btn icon" data-go="home">←</button><h2>Ayarlar</h2><span></span></header>
+  <div class="panel center">
+    <label class="field">Oyuncu adı <input id="s-name" maxlength="16"></label>
+    <label class="field">Grafik kalitesi
+      <select id="s-quality"><option value="auto">Otomatik</option><option value="high">Ultra</option><option value="medium">Orta</option><option value="low">Düşük (eski cihaz)</option></select>
+    </label>
+    <label class="field check"><input type="checkbox" id="s-sound"> Ses açık</label>
+    <button class="btn" id="s-full">⛶ Tam ekran</button>
+    <button class="btn danger" id="s-reset">İlerlemeyi sıfırla</button>
+    <p class="muted small">Kalite değişikliği sayfa yenilenince uygulanır.</p>
+  </div>
+</section>
+
+<!-- Yarış HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-top">
+    <button class="btn icon small" id="hud-pause">❚❚</button>
+    <div class="hud-prog"><div class="lvl" id="hud-level"></div><div class="track"><div id="hud-bar"></div><div id="hud-markers"></div><span class="flag">🏁</span></div></div>
+    <div class="hud-col">
+      <span class="pill"><b class="ic star">★</b><span id="hud-stars">0</span></span>
+      <span class="pill"><b class="ic dia">◆</b><span id="hud-diamonds">0</span></span>
+    </div>
+  </div>
+  <div id="hud-hearts" class="hearts"></div>
+  <div id="hud-power" class="power"></div>
+  <div class="speedo"><span id="hud-speed">0</span><small>km/sa</small></div>
+  <button id="nitro-btn" class="nitro"><span>🔥<br>NİTRO</span></button>
+</div>
+<div id="countdown"></div>
+<div id="pop"></div>
+<div id="flash"></div>
+
+<!-- Duraklat -->
+<div id="pause" class="modal hidden">
+  <div class="card"><h2>Durduruldu</h2>
+    <button class="btn big primary" id="p-resume">Devam</button>
+    <button class="btn big" id="p-retry">Yeniden Başla</button>
+    <button class="btn big" id="p-map">Haritaya Dön</button>
+  </div>
+</div>
+
+<!-- Sonuç -->
+<div id="result" class="modal hidden">
+  <div class="card">
+    <h2 id="r-title"></h2>
+    <div id="r-rating" class="rating big"></div>
+    <div id="r-body"></div>
+    <div class="row" id="r-buttons"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="loading" class="loading"><div class="spinner"></div><p>Yükleniyor…</p></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
