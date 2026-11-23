@@ -176,3 +176,5 @@ select option { background: #1a2233; }
 .try { display: flex; gap: 8px; align-items: center; } .try > * { flex: 1; }
 .note { color: var(--muted); text-align: center; padding: 14px; }
 .upg { cursor: pointer; }
+
+.fps { position: fixed; left: 50%; bottom: calc(6px + var(--safe-b)); transform: translateX(-50%); z-index: 90; background: rgba(0,0,0,.6); color: #b9f6ca; font: 600 11px ui-monospace, monospace; padding: 3px 8px; border-radius: 8px; pointer-events: none; white-space: nowrap; }
