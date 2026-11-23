@@ -70,12 +70,13 @@
   <div class="card">
     <h2 id="lc-title">Bölüm</h2>
     <p id="lc-region" class="muted"></p>
+    <p id="lc-mode" style="margin:0;line-height:1.4"></p>
     <div id="lc-stars" class="rating"></div>
     <ul class="info">
       <li>📏 <span id="lc-len"></span></li>
       <li>🏆 Ödül: <span id="lc-reward"></span></li>
     </ul>
-    <p class="hint">Kaydır: ⬅️➡️ şerit, ⬆️ zıpla, ⬇️ nitro<br>Ekranın sağına/soluna dokunmak da şerit değiştirir.</p>
+    <p class="hint">Parmağını sağa sola sürükle: direksiyon · Yukarı fiske: zıpla · Aşağı fiske: nitro<br>Havadayken hızlı yana fiske: takla! · 💥 dolunca şok dalgası</p>
     <div class="row"><button class="btn" id="lc-close">Kapat</button><button class="btn primary" id="lc-go">Yarış! 🏁</button></div>
   </div>
 </div>
@@ -129,6 +130,9 @@
     <label class="field">Grafik kalitesi
       <select id="s-quality"><option value="auto">Otomatik</option><option value="high">Ultra</option><option value="medium">Orta</option><option value="low">Düşük (eski cihaz)</option></select>
     </label>
+    <label class="field">Direksiyon
+      <select id="s-steer"><option value="free">Serbest (parmakla sürükle)</option><option value="lane">3 şerit (kaydır)</option></select>
+    </label>
     <label class="field check"><input type="checkbox" id="s-sound"> Ses açık</label>
     <label class="field check"><input type="checkbox" id="s-fps"> Hız göstergesi (FPS)</label>
     <button class="btn" id="s-full">⛶ Tam ekran</button>
@@ -154,10 +158,13 @@
     </div>
   </div>
   <div id="hud-hearts" class="hearts"></div>
+  <div id="hud-rank" class="hud-rank"></div>
+  <div class="hud-score"><span id="hud-score">0</span> <b id="hud-combo"></b></div>
   <div id="hud-power" class="power"></div>
   <div class="speedo"><span id="hud-speed">0</span><small>km/sa</small></div>
   <button id="nitro-btn" class="nitro"><span>🔥<br>NİTRO</span></button>
   <button id="horn-btn" class="btn horn">📯</button>
+  <button id="shock-btn" class="shock"><span>💥<br>ŞOK</span></button>
 </div>
 <div id="countdown"></div>
 <div id="pop"></div>
