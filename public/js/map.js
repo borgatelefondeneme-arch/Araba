@@ -8,7 +8,7 @@ export function renderMap(wrap, save, onPick) {
   wrap.innerHTML = '';
   const W = Math.min(wrap.clientWidth || innerWidth, 760), H = PAD * 2 + (LEVELS.length - 1) * STEP;
   const inner = document.createElement('div'); inner.className = 'map-inner'; inner.style.width = W + 'px'; inner.style.height = H + 'px';
-  const cv = document.createElement('canvas'); const dpr = Math.min(2, devicePixelRatio || 1);
+  const cv = document.createElement('canvas'); const dpr = Math.min(2, devicePixelRatio || 1, Math.sqrt(15e6 / (W * H))); // iOS tuval sınırı (~16 MP)
   cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   inner.appendChild(cv); wrap.appendChild(inner);
   const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);

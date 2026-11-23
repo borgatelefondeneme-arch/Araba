@@ -69,7 +69,7 @@ fs.writeFileSync(path.join(DIST, 'turbo-koy.html'), single);
 const PG = path.join(DIST, 'pages');
 const cp = (rel) => { const d = path.join(PG, rel); fs.mkdirSync(path.dirname(d), { recursive: true }); fs.copyFileSync(path.join(PUB, rel), d); };
 for (const d of ['css', 'img', 'sfx', 'models', 'env', 'sky', 'tex']) for (const f of ls(d)) cp(`${d}/${f}`);
-cp('manifest.webmanifest');
+cp('manifest.webmanifest'); cp('turn-config.js');
 fs.mkdirSync(path.join(PG, 'js'), { recursive: true });
 fs.writeFileSync(path.join(PG, 'js/game.js'), bundle.outputFiles[0].text);
 fs.writeFileSync(path.join(PG, '.nojekyll'), '');

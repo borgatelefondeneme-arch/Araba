@@ -274,6 +274,26 @@ $('mp-leave').onclick = () => { net.send({ t: 'leave' }); mpRoom = null; renderM
 $('mp-back').onclick = () => { if (mpRoom) net.send({ t: 'leave' }); mpRoom = null; show('home'); };
 $('mp-start').onclick = () => { initAudio(); net.send({ t: 'start' }); };
 $('mp-level').onchange = () => net.send({ t: 'setLevel', level: +$('mp-level').value });
+// ---------- Davet bağlantısı (oyunu yüklemeye gerek yok: bağlantı tarayıcıda açılır ve odaya katılır) ----------
+function inviteUrl(code) { const u = new URL(location.href); u.search = '?oda=' + encodeURIComponent(code); u.hash = ''; return u.toString(); }
+function inviteText(code) { return `Turbo Köy'de benimle yarış! 🏁🚗 Oda kodu: ${code}`; }
+$('mp-share').onclick = async () => {
+  if (!mpRoom) return; sfx.click();
+  const url = inviteUrl(mpRoom.code), text = inviteText(mpRoom.code);
+  if (navigator.share) { try { await navigator.share({ title: 'Turbo Köy', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(text + '\n' + url); toast('Davet bağlantısı kopyalandı – mesaja yapıştır'); } catch { toast(url); }
+};
+$('mp-wa').onclick = () => { if (!mpRoom) return; sfx.click(); open('https://wa.me/?text=' + encodeURIComponent(inviteText(mpRoom.code) + '\n' + inviteUrl(mpRoom.code)), '_blank'); };
+// sayfa davet bağlantısıyla açıldıysa (…?oda=ABCD) doğrudan odaya git
+const inviteCode = new URLSearchParams(location.search).get('oda');
+function handleInvite() {
+  if (!inviteCode) return;
+  history.replaceState(null, '', location.pathname);
+  show('mp'); $('mp-code').value = inviteCode.toUpperCase();
+  if (save.name && save.name !== 'Oyuncu') setTimeout(() => joinRoom(inviteCode.toUpperCase()), 300);
+  else { toast('Adını yaz ve "Katıl"a bas 👇'); setTimeout(() => $('mp-name').focus(), 200); }
+}
+
 function renderMpRoom() {
   $('mp-lobby-list').classList.toggle('hidden', !!mpRoom); $('mp-room').classList.toggle('hidden', !mpRoom);
   if (!mpRoom) return;
@@ -370,6 +390,7 @@ function loop(now) {
 }
 show('home');
 $('loading').classList.add('hidden');
+handleInvite();
 requestAnimationFrame(loop);
 window.__turboReady = true;
 window.__game = { get race() { return race; }, save, startRace, LEVELS, show };

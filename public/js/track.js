@@ -168,7 +168,7 @@ export function trafficSet(level) {
 }
 export function generateLevel(level, seed) {
   const TRAFFIC_TYPES = trafficSet(level), RAMP_TYPES = TRAFFIC_TYPES.filter(m => LOW_TRAFFIC.includes(m));
-  const r = rng(seed), ents = [], L = level.length, d = (level.n - 1) / 19;
+  const r = rng(seed), ents = [], L = level.length, d = (level.n - 1) / 39;
   let z = 90, prevFree = [0, 1, 2], trafficLanes = new Set(), lastRamp = -999, totalStars = 0;
   const themeObst = THEME_OBST[level.theme] || THEME_OBST.village;
   const pick = (a) => a[Math.floor(r() * a.length)];

@@ -161,16 +161,29 @@ function loadScript(src) { return new Promise((ok, no) => { if (window.Peer) ret
 class PeerImpl {
   constructor(net) { this.net = net; this.mode = 'peer'; this.id = null; this.connected = false; this.peer = null; this.conn = null; this.host = null; this.profile = { name: 'Oyuncu', car: 'hatch', color: 'orig' }; }
   async connect() {
-    try { await loadScript(PEERJS); this.connected = true; this.net.emit('open'); this.net.emit('rooms', { t: 'rooms', list: [] }); }
+    this.ready ||= loadScript(PEERJS);
+    try { await this.ready; this.connected = true; this.net.emit('open'); this.net.emit('rooms', { t: 'rooms', list: [] }); }
     catch { this.net.emit('close'); this.net.emit('error', { t: 'error', msg: 'İnternet bağlantısı gerekli' }); }
+  }
+  // ICE sunucuları: STUN + (turn-config.js varsa) TURN aktarma -> farklı ağlardan (Wi-Fi / mobil veri) bağlanma
+  iceServers() {
+    const ice = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }];
+    const c = window.GK_TURN || {};
+    if (Array.isArray(c.sunucular)) ice.push(...c.sunucular);
+    if (c.turnKullanici && c.turnSifre) {
+      const s = c.turnSunucu || 'standard.relay.metered.ca', u = c.turnKullanici.trim(), p = c.turnSifre.trim();
+      for (const url of ['turn:' + s + ':80', 'turn:' + s + ':80?transport=tcp', 'turn:' + s + ':443', 'turns:' + s + ':443?transport=tcp']) ice.push({ urls: url, username: u, credential: p });
+    }
+    return ice;
   }
   makePeer(id) {
     return new Promise((ok, no) => {
-      const p = new window.Peer(id, { debug: 0 });
+      const p = new window.Peer(id, { debug: 0, config: { iceServers: this.iceServers() } });
       p.on('open', (pid) => ok(p)); p.on('error', (e) => no(e));
     });
   }
   async create(level) {
+    try { await (this.ready ||= loadScript(PEERJS)); } catch { this.net.emit('error', { t: 'error', msg: 'İnternet bağlantısı gerekli' }); return; }
     this.close();
     const code = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
     let p; try { p = await this.makePeer(PREFIX + code.toLowerCase()); } catch { return this.create(level); }
@@ -186,6 +199,7 @@ class PeerImpl {
     this.hostBroadcast(this.roomInfo());
   }
   async join(code) {
+    try { await (this.ready ||= loadScript(PEERJS)); } catch { this.net.emit('error', { t: 'error', msg: 'İnternet bağlantısı gerekli' }); return; }
     this.close();
     let p; try { p = await this.makePeer(); } catch { this.net.emit('error', { t: 'error', msg: 'Bağlantı kurulamadı' }); return; }
     this.peer = p; this.id = p.id; this.net.emit('welcome', { id: this.id });

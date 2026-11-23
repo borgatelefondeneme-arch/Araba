@@ -44,20 +44,20 @@ export const REGIONS = [
   { id: 'snow', name: 'Karlı Dağ', theme: 'snow', color: '#cfe3f2' },
   { id: 'city', name: 'Gece Şehri', theme: 'city', color: '#3949ab' },
 ];
-export const LEVELS_PER_REGION = 4;
+export const LEVELS_PER_REGION = 8; // 5 bölge × 8 = 40 bölüm
 export const LEVELS = [];
 REGIONS.forEach((r, ri) => {
   for (let i = 0; i < LEVELS_PER_REGION; i++) {
     const n = ri * LEVELS_PER_REGION + i + 1;
     LEVELS.push({
       n, region: r.id, theme: r.theme, regionName: r.name,
-      length: 900 + n * 110,
-      speed: 24 + n * 0.55,           // başlangıç hızı (m/sn)
-      density: 0.45 + n * 0.025,      // engel yoğunluğu
-      traffic: Math.min(0.55, 0.15 + n * 0.02),
-      reward: 60 + n * 15,
+      length: 1000 + ri * 230 + i * 110,
+      speed: 24 + n * 0.28,           // başlangıç hızı (m/sn)
+      density: 0.45 + n * 0.0125,     // engel yoğunluğu
+      traffic: Math.min(0.55, 0.15 + n * 0.01),
+      reward: 60 + n * 8,
       seed: 1000 + n * 7919,
-      mode: n % 4 === 3 ? 'police' : 'race', // her bölgenin 3. bölümü polis kovalamacası
+      mode: i === 2 || i === 6 ? 'police' : 'race', // her bölgenin 3. ve 7. bölümü polis kovalamacası
     });
   }
 });

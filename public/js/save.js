@@ -14,6 +14,12 @@ for (const [o, n] of [['suv', 'offroad'], ['race', 'rally']]) {
   delete data.colors[o];
 }
 data.custom ||= {}; data.items ||= {};
+// v4: bölge başına 4 -> 8 bölüm; eski bölüm numaralarını yenilerine taşı
+if (!data.levelsV) {
+  const old = data.levels || {}, nl = {}; const map = (n) => Math.floor((n - 1) / 4) * 8 + ((n - 1) % 4) + 1;
+  for (const [n, st] of Object.entries(old)) nl[map(+n)] = st;
+  data.levels = nl; data.unlocked = map(Math.max(1, data.unlocked || 1)); data.levelsV = 2;
+}
 for (const [id, col] of Object.entries(data.colors || {})) { (data.custom[id] ||= {}).paint ||= col; }
 export const save = data;
 export function persist() { try { localStorage.setItem(KEY, JSON.stringify(data)); } catch {} }

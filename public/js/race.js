@@ -402,7 +402,7 @@ export class Race {
       const lane = [0, 2, 1, 0][i], d = [6, 6, 14, 22][i], nm = r.name || names[(this.level.n + i) % names.length];
       const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(nm, ['#ffd54f', '#80d8ff', '#ff8a80', '#b9f6ca'][i]), depthTest: false, transparent: true })); label.scale.set(2.6, 0.65, 1); label.position.y = car.userData.height + 1.1; label.renderOrder = 10; car.add(label);
       const fl = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.3, 10), new THREE.MeshBasicMaterial({ color: 0x3d8bff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); fl.rotation.x = Math.PI / 2; fl.position.set(0, 0.35, car.userData.halfL + 0.7); fl.visible = false; car.add(fl);
-      this.rivals.push({ car, label, flame: fl, nitroT: 0, nitroCd: 6 + i * 3, name: nm, d, x: ROAD.lanes[lane], tx: ROAD.lanes[lane], speed: 0, skill: 0.9 + i * 0.025 + (this.level.n / 20) * 0.06, slowT: 0, think: 0, hw: car.userData.halfW, hl: car.userData.halfL, spin: 0, ov: 1 });
+      this.rivals.push({ car, label, flame: fl, nitroT: 0, nitroCd: 6 + i * 3, name: nm, d, x: ROAD.lanes[lane], tx: ROAD.lanes[lane], speed: 0, skill: 0.9 + i * 0.025 + (this.level.n / 40) * 0.06, slowT: 0, think: 0, hw: car.userData.halfW, hl: car.userData.halfL, spin: 0, ov: 1 });
     });
   }
   makePolice() {
