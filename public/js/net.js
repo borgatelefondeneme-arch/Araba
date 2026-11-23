@@ -1,17 +1,149 @@
-// Yerel ağ çok oyunculu bağlantı
+// Çok oyunculu bağlantı. İki yol:
+//  1) Yerel sunucu (npm start) -> WebSocket
+//  2) claude.ai yayını -> "room" yeteneği (sunucu gerekmez)
+// Her ikisi de main.js'e aynı mesajları verir: welcome, rooms, room, start, state, left, finish, raceEnd, error, open, close.
+
 export class Net {
-  constructor() { this.handlers = {}; this.id = null; this.ws = null; this.queue = []; }
+  constructor() { this.handlers = {}; this.impl = null; this.queue = []; }
+  get id() { return this.impl?.id ?? null; }
+  get mode() { return this.impl?.mode || null; }
+  connect() {
+    if (!this.impl) this.impl = (window.claude && typeof window.claude.use === 'function') ? new RoomImpl(this) : new WsImpl(this);
+    this.impl.connect();
+  }
+  get connected() { return !!this.impl?.connected; }
+  send(m) { if (this.impl) this.impl.send(m); else this.queue.push(m); }
+  on(t, f) { (this.handlers[t] ||= []).push(f); }
+  emit(t, m) { for (const f of this.handlers[t] || []) f(m); }
+}
+
+class WsImpl {
+  constructor(net) { this.net = net; this.mode = 'ws'; this.ws = null; this.queue = []; this.id = null; }
   connect() {
     if (this.ws && this.ws.readyState <= 1) return;
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     this.ws = new WebSocket(`${proto}://${location.host}/ws`);
-    this.ws.onopen = () => { for (const m of this.queue) this.ws.send(JSON.stringify(m)); this.queue = []; this.emit('open'); };
-    this.ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch { return; } if (m.t === 'welcome') this.id = m.id; this.emit(m.t, m); };
-    this.ws.onclose = () => { this.emit('close'); };
-    this.ws.onerror = () => this.emit('neterror');
+    this.ws.onopen = () => { for (const m of this.queue) this.ws.send(JSON.stringify(m)); this.queue = []; this.net.emit('open'); };
+    this.ws.onmessage = (ev) => { let m; try { m = JSON.parse(ev.data); } catch { return; } if (m.t === 'welcome') this.id = m.id; this.net.emit(m.t, m); };
+    this.ws.onclose = () => this.net.emit('close');
+    this.ws.onerror = () => this.net.emit('neterror');
   }
   get connected() { return this.ws && this.ws.readyState === 1; }
   send(m) { if (this.connected) this.ws.send(JSON.stringify(m)); else this.queue.push(m); }
-  on(t, f) { (this.handlers[t] ||= []).push(f); }
-  emit(t, m) { for (const f of this.handlers[t] || []) f(m); }
+}
+
+// ---- claude.ai room ile sunucusuz çok oyunculu ----
+const LETTERS = 'ABCDEFGHJKLMNPRSTUVYZ';
+class RoomImpl {
+  constructor(net) {
+    this.net = net; this.mode = 'room'; this.lobby = null; this.game = null; this.id = null; this.connected = false;
+    this.profile = { name: 'Oyuncu', car: 'hatch', color: 'orig' }; this.level = 1; this.code = null;
+    this.epoch = 0; this.results = []; this.ended = 0; this.endTimer = null; this.pending = []; this.starting = false;
+  }
+  async connect() {
+    if (this.starting) return; this.starting = true;
+    const lobby = await window.claude.use('room').catch(() => null);
+    if (!lobby) { this.net.emit('close'); this.net.emit('error', { msg: 'Birlikte oynama bu görünümde kullanılamıyor (giriş yapmış olmalısın).' }); this.starting = false; return; }
+    this.lobby = lobby;
+    lobby.onConnection((c) => { this.connected = c; this.net.emit(c ? 'open' : 'close'); }, () => { this.connected = false; this.net.emit('close'); });
+    lobby.onPeers((ch) => { const me = ch.peers.find(p => p.sameTab); if (me && !this.id) { this.id = me.peer; this.net.emit('welcome', { id: this.id }); } this.pushRooms(); });
+    for (const m of this.net.queue.splice(0)) this.send(m);
+  }
+  pushRooms() {
+    if (!this.lobby) return;
+    const list = this.lobby.peers().filter(p => !p.sameTab && p.presence?.game?.open).map(p => ({ code: String(p.presence.game.code), host: String(p.presence.game.host || '?'), count: Number(p.presence.game.count) || 1, level: Number(p.presence.game.level) || 1 }));
+    this.net.emit('rooms', { t: 'rooms', list });
+  }
+  advertise(open) {
+    if (!this.lobby) return;
+    const peers = this.game ? this.game.peers().length : 1;
+    this.lobby.presence({ game: open && this.code ? { code: this.code, host: this.profile.name, level: this.level, count: peers, open: true } : null }).catch(() => {});
+  }
+  players() {
+    return (this.game?.peers() || []).filter(p => p.presence && p.presence.name).map(p => ({ id: p.peer, name: String(p.presence.name).slice(0, 16), car: String(p.presence.car || 'hatch'), color: String(p.presence.color || 'orig') }));
+  }
+  hostId() {
+    const ps = this.game?.peers() || [];
+    const h = ps.find(p => p.presence?.host === true);
+    if (h) return h.peer;
+    const sorted = ps.map(p => p.peer).sort(); return sorted[0] || null;
+  }
+  roomMsg() { return { t: 'room', code: this.code, hostId: this.hostId(), level: this.level, state: this.racing ? 'race' : 'lobby', players: this.players() }; }
+  async joinGame(code, asHost) {
+    if (!this.lobby) { this.net.queue.push({ t: asHost ? 'create' : 'join', code }); return; }
+    await this.leaveGame();
+    let g;
+    try { g = await this.lobby.join('g-' + code.toLowerCase()); } catch { this.net.emit('error', { t: 'error', msg: 'Odaya bağlanılamadı' }); return; }
+    this.game = g; this.code = code;
+    await g.presence({ ...this.profile, host: !!asHost, level: this.level }).catch(() => {});
+    g.onPeers((ch) => {
+      // seviye: oda sahibinin seçtiği
+      const h = ch.peers.find(p => p.peer === this.hostId());
+      if (h && h.presence?.level) this.level = Number(h.presence.level) || this.level;
+      if (this.hostId() === this.id && !ch.peers.find(p => p.sameTab)?.presence?.host) g.presence({ host: true }).catch(() => {});
+      for (const p of ch.left) this.net.emit('left', { t: 'left', id: p.peer });
+      for (const p of [...ch.updated, ...ch.joined]) {
+        if (p.sameTab) continue;
+        const s = p.presence?.st;
+        if (this.racing && s && s.e === this.epoch) this.net.emit('state', { t: 'state', id: p.peer, d: +s.d || 0, x: +s.x || 0, y: +s.y || 0, s: +s.s || 0 });
+      }
+      this.checkResults();
+      this.net.emit('room', this.roomMsg());
+      if (this.hostId() === this.id) this.advertise(!this.racing);
+    });
+    g.on('start', (msg) => {
+      if (msg.peer !== this.hostId()) return;
+      const d = msg.data || {}; const ep = Number(d.epoch) || 0; if (ep <= this.epoch) return;
+      this.epoch = ep; this.level = Number(d.level) || 1; this.results = []; this.ended = 0; this.racing = true; clearTimeout(this.endTimer);
+      g.presence({ st: null, fin: null }).catch(() => {});
+      this.net.emit('start', { t: 'start', level: this.level, seed: Number(d.seed) || 1, countdown: 6000, players: this.players() });
+      if (this.hostId() === this.id) this.advertise(false);
+    });
+    if (!asHost) {
+      setTimeout(() => { if (this.game === g && !g.peers().some(p => p.presence?.host === true && !p.sameTab)) { this.net.emit('error', { t: 'error', msg: 'Oda bulunamadı' }); this.leaveGame(); this.net.emit('rooms', { t: 'rooms', list: [] }); this.pushRooms(); } }, 2500);
+    }
+    this.net.emit('room', this.roomMsg());
+  }
+  async leaveGame() {
+    if (this.game) { const g = this.game; this.game = null; this.code = null; this.racing = false; try { await g.leave(); } catch {} }
+    this.advertise(false);
+  }
+  checkResults() {
+    if (!this.racing || !this.game) return;
+    const ps = this.game.peers();
+    const res = ps.filter(p => p.presence?.fin && p.presence.fin.e === this.epoch).map(p => ({ id: p.peer, name: String(p.presence.name || '?').slice(0, 16), time: +p.presence.fin.time || 0, stars: +p.presence.fin.stars || 0 }))
+      .sort((a, b) => a.time - b.time).map((r, i) => ({ ...r, place: i + 1 }));
+    if (res.length !== this.results.length) {
+      this.results = res; this.net.emit('finish', { t: 'finish', results: res });
+      if (res.length === 1 && !this.endTimer) this.endTimer = setTimeout(() => this.endRace(), 45000);
+    }
+    if (res.length && res.length >= ps.length) this.endRace();
+  }
+  endRace() {
+    if (!this.racing || this.ended === this.epoch) return;
+    this.ended = this.epoch; this.racing = false; clearTimeout(this.endTimer); this.endTimer = null;
+    this.net.emit('raceEnd', { t: 'raceEnd', results: this.results });
+    this.net.emit('room', this.roomMsg());
+    if (this.hostId() === this.id) this.advertise(true);
+  }
+  send(m) {
+    if (!this.lobby) { this.net.queue.push(m); return; }
+    const g = this.game;
+    switch (m.t) {
+      case 'profile':
+        this.profile = { name: String(m.name || 'Oyuncu').slice(0, 16), car: String(m.car || 'hatch'), color: String(m.color || 'orig') };
+        g?.presence(this.profile).catch(() => {}); break;
+      case 'listRooms': this.pushRooms(); break;
+      case 'create': {
+        const code = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join('');
+        this.level = Number(m.level) || 1; this.joinGame(code, true).then(() => this.advertise(true)); break;
+      }
+      case 'join': this.joinGame(String(m.code || '').toUpperCase(), false); break;
+      case 'leave': this.leaveGame(); break;
+      case 'setLevel': if (g && this.hostId() === this.id) { this.level = Number(m.level) || 1; g.presence({ level: this.level }).catch(() => {}); this.advertise(true); this.net.emit('room', this.roomMsg()); } break;
+      case 'start': if (g && this.hostId() === this.id) g.emit('start', { level: this.level, seed: Math.floor(Math.random() * 1e9), epoch: Date.now() }).catch(() => this.net.emit('error', { t: 'error', msg: 'Başlatılamadı' })); break;
+      case 'state': if (g && this.racing) g.presence({ st: { e: this.epoch, d: m.d, x: m.x, y: m.y, s: m.s } }).catch(() => {}); break;
+      case 'finish': if (g && this.racing) { g.presence({ fin: { e: this.epoch, time: m.time, stars: m.stars } }).catch(() => {}); setTimeout(() => this.checkResults(), 50); } break;
+    }
+  }
 }

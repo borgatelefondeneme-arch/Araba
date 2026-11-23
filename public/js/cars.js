@@ -28,12 +28,14 @@ export const TRAFFIC_MODELS = ['compact-car', '1990s-taxi', 'delivery-van', 'ice
 export const LOW_TRAFFIC = ['compact-car', 'coupe', 'electric-car', 'convertible', '1990s-taxi'];
 
 const loader = new GLTFLoader();
+// claude.ai yayınında .glb sunulmadığı için aynı modeller .json (glTF) + .jpg doku olarak yüklenir
+const FMT = (window.claude && typeof window.claude.use === 'function') ? 'json' : 'glb';
 const cache = new Map();
 
 export function loadModel(key) {
   if (!MODELS[key]) key = 'hatchback';
   if (cache.has(key)) return cache.get(key);
-  const p = loader.loadAsync('models/' + MODELS[key].file).then(g => prepare(key, g.scene));
+  const p = loader.loadAsync('models/' + MODELS[key].file.replace(/\.glb$/, '.' + FMT)).then(g => prepare(key, g.scene));
   cache.set(key, p);
   p.catch(() => cache.delete(key));
   return p;

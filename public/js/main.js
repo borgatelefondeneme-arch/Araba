@@ -162,6 +162,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && rac
 function enterMp() {
   $('mp-name').value = save.name;
   net.connect();
+  $('mp-hint').textContent = net.mode === 'room' ? 'İki cihazda da bu sayfayı aynı Claude hesabıyla aç. Biri oda kursun, diğeri listeden katılsın.' : 'Tüm cihazlar aynı Wi-Fi\'de olmalı. Bir cihaz oda kurar, diğeri listeden katılır.';
   net.send({ t: 'profile', name: save.name, car: save.car, color: carColor(carById(save.car)) });
   net.send({ t: 'listRooms' });
   renderMpRoom();
@@ -202,7 +203,7 @@ function renderMpRoom() {
   $('mp-wait').textContent = host ? (mpRoom.players.length < 2 ? 'Diğer oyuncunun katılmasını bekle (tek başına da başlatabilirsin).' : 'Hazır olunca başlat!') : 'Oda sahibinin başlatması bekleniyor…';
 }
 net.on('open', () => $('mp-status').classList.add('on'));
-net.on('close', () => { $('mp-status').classList.remove('on'); if (screen === 'mp') toast('Sunucu bağlantısı yok. Bilgisayarda "npm start" çalışıyor mu?'); });
+net.on('close', () => { $('mp-status').classList.remove('on'); if (screen === 'mp' && net.mode === 'ws') toast('Sunucu bağlantısı yok. Bilgisayarda "npm start" çalışıyor mu?'); });
 net.on('rooms', (m) => renderRooms(m.list));
 net.on('room', (m) => { mpRoom = m; if (screen === 'mp') renderMpRoom(); });
 net.on('error', (m) => toast(m.msg));
@@ -233,10 +234,14 @@ function renderMpResults(final) {
 
 // ---------- Ayarlar ----------
 $('s-name').onchange = () => { save.name = $('s-name').value.trim() || 'Oyuncu'; persist(); };
-$('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); if (confirm('Kalite değişti. Sayfa yenilensin mi?')) location.reload(); };
+$('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); toast('Kalite, oyunu yeniden açınca uygulanır'); };
 $('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); };
 $('s-full').onclick = () => document.documentElement.requestFullscreen?.().catch(() => toast('Bu cihaz tam ekranı desteklemiyor'));
-$('s-reset').onclick = () => { if (confirm('Tüm ilerleme silinsin mi?')) { resetSave(); show('home'); toast('Sıfırlandı'); } };
+let resetArm = 0;
+$('s-reset').onclick = () => {
+  if (Date.now() - resetArm > 3000) { resetArm = Date.now(); $('s-reset').textContent = 'Emin misin? Silmek için tekrar bas'; setTimeout(() => { $('s-reset').textContent = 'İlerlemeyi sıfırla'; }, 3000); return; }
+  resetArm = 0; resetSave(); show('home'); toast('Sıfırlandı');
+};
 addEventListener('resize', () => { if (screen === 'garage') renderGarage(); });
 
 // ---------- Ana döngü ----------
