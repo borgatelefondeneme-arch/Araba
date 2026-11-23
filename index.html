@@ -106,6 +106,7 @@
   <div class="panel center">
     <div id="mp-lobby-list">
       <label class="field">Adın <input id="mp-name" maxlength="16"></label>
+      <label class="field">Kaç kişi oynayacak? <select id="mp-need"><option value="2">2 kişi</option><option value="3">3 kişi</option><option value="4">4 kişi</option><option value="5">5 kişi</option><option value="6">6 kişi</option></select></label>
       <button class="btn big primary" id="mp-create">➕ Oda Kur</button>
       <h3>Açık Odalar</h3>
       <div id="mp-rooms" class="rooms"><p class="muted">Oda aranıyor…</p></div>
@@ -114,9 +115,12 @@
     </div>
     <div id="mp-room" class="hidden">
       <div class="room-code">Oda: <b id="mp-rcode"></b></div>
+      <div id="mp-invite">
       <div class="row"><button class="btn mp" id="mp-share">📤 Davet et</button><button class="btn" id="mp-wa" style="background:#25d366;border-color:#25d366">WhatsApp</button></div>
       <div class="row"><button class="btn" id="mp-bt">📶 Bluetooth / Yakındaki</button><button class="btn" id="mp-qr">▦ QR kod</button></div>
       <div id="mp-qr-box" class="qr-box hidden"><canvas id="mp-qr-canvas" width="220" height="220"></canvas><p class="muted small">Arkadaşın telefonunun kamerasıyla bu kodu okutsun; oyun açılıp odana katılır.</p></div>
+      </div>
+      <div id="mp-count" class="room-code"></div>
       <div id="mp-players" class="players"></div>
       <div id="mp-level-box"><label class="field">Bölüm <select id="mp-level"></select></label></div>
       <p id="mp-wait" class="muted"></p>
