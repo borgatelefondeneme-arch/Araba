@@ -1,0 +1,42 @@
+{
+ "village": {
+  "u": 0.595,
+  "v": 0.2339,
+  "elev": 47.9,
+  "horizon": "#c0c3cd",
+  "sun": 72558.8,
+  "src": "kloofendal_48d_partly_cloudy_puresky"
+ },
+ "forest": {
+  "u": 0.5959,
+  "v": 0.4448,
+  "elev": 9.9,
+  "horizon": "#dae0e1",
+  "sun": 20.1,
+  "src": "evening_road_01_puresky"
+ },
+ "desert": {
+  "u": 0.6003,
+  "v": 0.4497,
+  "elev": 9.1,
+  "horizon": "#dee4e4",
+  "sun": 144086.0,
+  "src": "lonely_road_afternoon_puresky"
+ },
+ "snow": {
+  "u": 0.5818,
+  "v": 0.3716,
+  "elev": 23.1,
+  "horizon": "#dadce0",
+  "sun": 6.0,
+  "src": "kloofendal_overcast_puresky"
+ },
+ "city": {
+  "u": 0.5989,
+  "v": 0.4058,
+  "elev": 17.0,
+  "horizon": "#677380",
+  "sun": 55633.4,
+  "src": "kloppenheim_02_puresky"
+ }
+}

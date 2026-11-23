@@ -10,6 +10,7 @@ import { save, persist, resetSave } from './save.js';
 import { initAudio, setSound, sfx } from './audio.js';
 import { preloadModels } from './cars.js';
 import { trafficSet } from './track.js';
+import { preloadWorld } from './world.js';
 
 const $ = (id) => document.getElementById(id);
 const engine = new Engine($('gl'), save.quality);
@@ -180,7 +181,7 @@ async function startRace(level, o) {
   screen = 'race'; raceMode = o; currentLevel = level; paused = false;
   const car = carById(save.car);
   const players = (o.players || []).map(p => ({ ...p, model: carById(p.car).type }));
-  try { await preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]); }
+  try { await Promise.all([preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme)]); }
   catch (e) { console.warn(e); toast('Araç modelleri yüklenemedi'); }
   if (screen !== 'race' || raceMode !== o) return;
   race = new Race(engine, {

@@ -1,6 +1,7 @@
 // Bölüm içeriği: engeller, rampalar, yıldızlar, elmaslar, güçlendiriciler
 import * as THREE from 'three';
 import { buildCar, spinWheels, TRAFFIC_MODELS, LOW_TRAFFIC } from './cars.js';
+import { propObject, propReady } from './env.js';
 import { rng, makeCheckerTexture, ROAD } from './textures.js';
 
 const LANES = ROAD.lanes;
@@ -10,7 +11,16 @@ const OBST = {
   barrier: { hw: 1.4, hl: 0.3, h: 1.05 }, cones: { hw: 1.3, hl: 0.4, h: 0.8 }, hay: { hw: 1.4, hl: 0.8, h: 1.45 },
   logs: { hw: 1.5, hl: 0.6, h: 0.95 }, rocks: { hw: 1.3, hl: 1.0, h: 1.35 }, snowman: { hw: 0.8, hl: 0.8, h: 2.1 }, jersey: { hw: 1.5, hl: 0.5, h: 0.95 },
 };
-const THEME_OBST = { village: ['barrier', 'cones', 'hay'], forest: ['logs', 'cones', 'barrier'], desert: ['rocks', 'barrier', 'cones'], snow: ['snowman', 'cones', 'barrier'], city: ['jersey', 'cones', 'barrier'] };
+const THEME_OBST = { village: ['barrier', 'cones', 'hay'], forest: ['stumps', 'cones', 'cbarrier', 'barrels'], desert: ['rocks', 'barrier', 'barrels'], snow: ['snowman', 'cones', 'cbarrier'], city: ['jersey', 'cones', 'barrels', 'cbarrier'] };
+OBST.stumps = { hw: 1.4, hl: 0.6, h: 0.9 }; OBST.barrels = { hw: 1.3, hl: 0.5, h: 1.05 }; OBST.cbarrier = { hw: 1.4, hl: 0.4, h: 1.1 };
+// 3B modelli engeller (Grab3D CC0): [model, adet, yükseklik, genişlik]
+const OBST_MODEL = { barrier: ['road-barrier', 1, 1.05, 2.9], cones: ['traffic-cone', 3, 0.75], hay: ['hay-bale', 2, 1.45, 1.45], stumps: ['tree-stump', 2, 0.85, 1.3], barrels: ['traffic-barrel', 2, 1.05], cbarrier: ['construction-barrier', 1, 1.1, 2.9], rocks: ['boulder-rock-set', 1, 1.35, 2.7], snowman: ['snowman', 1, 2.1], jersey: ['jersey-barrier', 1, 0.95, 3.0], logs: ['tree-stump', 2, 0.85, 1.3] };
+function modelObstacle(kind) {
+  const d = OBST_MODEL[kind]; if (!d || !propReady(d[0])) return null;
+  const [name, n, h, w] = d, g = new THREE.Group();
+  for (let i = 0; i < n; i++) { const o = propObject(name, { h, w }); if (!o) return null; o.position.x = n === 1 ? 0 : (i - (n - 1) / 2) * (2.6 / n) * 1.1; o.rotation.y = (i * 1.3) % 0.6 - 0.3 + (name === 'road-barrier' || name === 'construction-barrier' || name === 'jersey-barrier' ? (o.userData.size.z > o.userData.size.x ? Math.PI / 2 : 0) : 0); g.add(o); }
+  g.userData = OBST[kind]; return g;
+}
 
 // ---------- Paylaşılan malzeme ve geometriler ----------
 let R = null;
@@ -51,6 +61,7 @@ function res() {
 function mesh(geo, mat, x = 0, y = 0, z = 0, cast = true) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = cast; m.receiveShadow = true; return m; }
 
 function makeObstacle(kind, r) {
+  const mo = modelObstacle(kind); if (mo) return mo;
   const g = new THREE.Group(), S = res();
   switch (kind) {
     case 'barrier': {

@@ -1,80 +1,74 @@
-// Ortam: gökyüzü, ışık, sis, zemin, yol ve tema dekorları (instanced)
+// Ortam: gerçek gökyüzü fotoğrafı (HDRI), tepeli arazi, PBR asfalt/zemin dokuları, 3D çevre modelleri (instanced)
 import * as THREE from 'three';
-import { Sky } from 'three/addons/objects/Sky.js';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRoadTextures, makeGroundTextures, makeFacadeTexture, makeWindowTexture, makeSignTexture, ROAD, rng } from './textures.js';
+import { makeFacadeTexture, makeWindowTexture, makeSignTexture, ROAD, rng } from './textures.js';
+import { PropInstancer, preloadProps, THEME_PROPS, OBSTACLE_PROPS, propReady } from './env.js';
+import { assetURL } from './assets.js';
 
+// Gökyüzü: Poly Haven CC0 HDRI'lerden üretilmiş fotoğraflar (public/sky). u,v: güneşin görüntüdeki yeri
 export const THEMES = {
-  village: { elev: 32, azim: 150, turb: 3, rayl: 1.4, fog: 0xbcd3e4, fogD: 0.0042, sun: 0xfff0d8, sunI: 3.0, hemiS: 0xcfe4ff, hemiG: 0x5a6b3a, hemiI: 0.9, exposure: 0.62, bloom: 0, clouds: 0.45 },
-  forest: { elev: 9, azim: 120, turb: 6, rayl: 2.2, fog: 0xd8b68a, fogD: 0.0062, sun: 0xffc48a, sunI: 2.6, hemiS: 0xffd9b0, hemiG: 0x2f4020, hemiI: 0.8, exposure: 0.62, bloom: 0, clouds: 0.35 },
-  desert: { elev: 58, azim: 170, turb: 9, rayl: 1.0, fog: 0xe7d2ae, fogD: 0.0048, sun: 0xfff6e6, sunI: 3.6, hemiS: 0xfff0d8, hemiG: 0xb88a50, hemiI: 1.0, exposure: 0.55, bloom: 0, clouds: 0.1 },
-  snow: { elev: 16, azim: 140, turb: 12, rayl: 3.0, fog: 0xdbe4ee, fogD: 0.0075, sun: 0xeef4ff, sunI: 2.2, hemiS: 0xe6efff, hemiG: 0xb8c4d0, hemiI: 1.2, exposure: 0.6, bloom: 0, clouds: 0.75 },
-  city: { night: true, fog: 0x0d1428, fogD: 0.0085, sun: 0x9fb4ff, sunI: 0.55, hemiS: 0x2a3a70, hemiG: 0x101018, hemiI: 0.55, exposure: 1.0, bloom: 0.85 },
+  village: { sky: 'village', u: 0.595, v: 0.234, horizon: 0xc4ccd6, fogD: 0.0028, sun: 0xfff0d8, sunI: 3.2, hemiS: 0xcfe4ff, hemiG: 0x5a6b3a, hemiI: 0.5, env: 0.9, exposure: 1.0, ground: 'leafy_grass', groundTint: 0xe6f0d0, hills: { near: 18, far: 90 }, bloom: 0 },
+  forest: { sky: 'forest', u: 0.596, v: 0.445, horizon: 0xd6dde0, fogD: 0.0034, sun: 0xffd2a0, sunI: 2.8, hemiS: 0xffe2c4, hemiG: 0x2f4020, hemiI: 0.5, env: 0.85, exposure: 1.0, ground: 'forest_floor', groundTint: 0xffffff, hills: { near: 26, far: 140 }, bloom: 0 },
+  desert: { sky: 'desert', u: 0.600, v: 0.450, horizon: 0xd9e2e4, fogD: 0.0026, sun: 0xfff1dc, sunI: 3.6, hemiS: 0xfff0d8, hemiG: 0xb88a50, hemiI: 0.5, env: 0.9, exposure: 0.95, ground: 'aerial_sand', groundTint: 0xffffff, hills: { near: 10, far: 70, dunes: true }, bloom: 0 },
+  snow: { sky: 'snow', u: 0.582, v: 0.372, horizon: 0xdadce0, fogD: 0.0042, sun: 0xeef4ff, sunI: 2.0, hemiS: 0xe6efff, hemiG: 0xb8c4d0, hemiI: 0.6, env: 1.0, exposure: 1.0, ground: 'snow_02', groundTint: 0xffffff, hills: { near: 30, far: 240 }, bloom: 0 },
+  city: { sky: 'city', night: true, u: 0.599, v: 0.406, horizon: 0x1a2230, fogD: 0.0050, sun: 0x9fb4ff, sunI: 0.6, hemiS: 0x2a3a70, hemiG: 0x101018, hemiI: 0.45, env: 0.5, exposure: 1.05, ground: 'grass_path_2', groundTint: 0x7a8a7a, hills: { near: 0, far: 0 }, bloom: 0.8 },
 };
 
-// ---------- paylaşılan dekor geometrileri ----------
-function jitter(geo, amt, seed) {
-  const r = rng(seed), p = geo.attributes.position, map = new Map();
-  for (let i = 0; i < p.count; i++) {
-    const k = `${p.getX(i).toFixed(3)},${p.getY(i).toFixed(3)},${p.getZ(i).toFixed(3)}`;
-    if (!map.has(k)) map.set(k, [(r() - 0.5) * amt, (r() - 0.5) * amt, (r() - 0.5) * amt]);
-    const j = map.get(k); p.setXYZ(i, p.getX(i) + j[0], p.getY(i) + j[1], p.getZ(i) + j[2]);
-  }
-  geo.computeVertexNormals(); return geo;
+// ---------- önden yükleme (gökyüzü, dokular, modeller) ----------
+const texCache = new Map();
+const texLoader = new THREE.TextureLoader();
+function loadTex(url, srgb) {
+  if (texCache.has(url)) return texCache.get(url);
+  const p = new Promise((ok) => texLoader.load(assetURL(url), (t) => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; ok(t); }, undefined, () => ok(null)));
+  texCache.set(url, p); return p;
 }
-let GEO = null;
-function geos() {
-  if (GEO) return GEO;
-  const trunk = new THREE.CylinderGeometry(0.12, 0.2, 1, 7); trunk.translate(0, 0.5, 0);
-  const leafy = mergeGeometries([
-    jitter(new THREE.IcosahedronGeometry(1, 2), 0.25, 1).translate(0, 0, 0),
-    jitter(new THREE.IcosahedronGeometry(0.75, 2), 0.2, 2).translate(0.5, 0.35, 0.2),
-    jitter(new THREE.IcosahedronGeometry(0.7, 2), 0.2, 3).translate(-0.45, 0.25, -0.3),
-  ]); leafy.translate(0, 0.9, 0);
-  const pine = mergeGeometries([0, 1, 2, 3].map(i => jitter(new THREE.ConeGeometry(0.9 - i * 0.18, 0.9, 10, 2), 0.08, 10 + i).translate(0, 0.45 + i * 0.5, 0))); pine.translate(0, 0.3, 0);
-  const snowcap = mergeGeometries([0, 1, 2, 3].map(i => new THREE.ConeGeometry(0.75 - i * 0.16, 0.42, 10, 1).translate(0, 0.94 + i * 0.5, 0)));
-  const rock = jitter(new THREE.DodecahedronGeometry(1, 1), 0.35, 7); rock.scale(1, 0.6, 1);
-  const bush = jitter(new THREE.IcosahedronGeometry(1, 1), 0.3, 8); bush.scale(1, 0.7, 1);
-  const cactus = mergeGeometries([
-    new THREE.CapsuleGeometry(0.28, 2.4, 4, 10).translate(0, 1.5, 0),
-    new THREE.CapsuleGeometry(0.18, 0.8, 4, 8).translate(0.62, 1.6, 0),
-    new THREE.CapsuleGeometry(0.18, 0.5, 4, 8).rotateZ(Math.PI / 2).translate(0.38, 1.2, 0),
-    new THREE.CapsuleGeometry(0.16, 0.6, 4, 8).translate(-0.55, 1.9, 0),
-    new THREE.CapsuleGeometry(0.16, 0.4, 4, 8).rotateZ(Math.PI / 2).translate(-0.33, 1.55, 0),
+const loaded = {};
+export async function preloadWorld(theme) {
+  const T = THEMES[theme];
+  const [sky, gd, gn, gr, ad, an, ar] = await Promise.all([
+    loadTex(`sky/${T.sky}.jpg`, true),
+    loadTex(`tex/${T.ground}_diff.jpg`, true), loadTex(`tex/${T.ground}_nor_gl.jpg`), loadTex(`tex/${T.ground}_rough.jpg`),
+    loadTex('tex/asphalt_02_diff.jpg', true), loadTex('tex/asphalt_02_nor_gl.jpg'), loadTex('tex/asphalt_02_rough.jpg'),
   ]);
-  const wall = new THREE.BoxGeometry(1, 1, 1); wall.translate(0, 0.5, 0);
-  const rs = new THREE.Shape([new THREE.Vector2(-0.58, 0), new THREE.Vector2(0.58, 0), new THREE.Vector2(0, 0.55)]);
-  const roof = new THREE.ExtrudeGeometry(rs, { depth: 1.1, bevelEnabled: false }); roof.translate(0, 0, -0.55);
-  const box = new THREE.BoxGeometry(1, 1, 1);
-  const pole = new THREE.CylinderGeometry(0.07, 0.1, 1, 8); pole.translate(0, 0.5, 0);
-  const lampHead = new THREE.BoxGeometry(0.9, 0.12, 0.35);
-  const hay = new THREE.CylinderGeometry(0.7, 0.7, 1.3, 16); hay.rotateZ(Math.PI / 2); hay.translate(0, 0.7, 0);
-  const snowman = mergeGeometries([new THREE.SphereGeometry(0.6, 16, 12).translate(0, 0.55, 0), new THREE.SphereGeometry(0.42, 16, 12).translate(0, 1.35, 0), new THREE.SphereGeometry(0.3, 16, 12).translate(0, 1.9, 0)]);
-  const mountain = jitter(new THREE.ConeGeometry(1, 1, 18, 6), 0.08, 21); mountain.translate(0, 0.5, 0);
-  GEO = { trunk, leafy, pine, snowcap, rock, bush, cactus, wall, roof, box, pole, lampHead, hay, snowman, mountain };
-  return GEO;
+  loaded[theme] = { sky, gd, gn, gr, ad, an, ar };
+  await preloadProps([...THEME_PROPS[theme], ...OBSTACLE_PROPS]);
 }
 
-// Bina geometrisi: UV'ler boyuta göre ölçeklenir (pencere dokusu bozulmasın)
-function buildingGeo(w, h, d) {
-  const g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0);
-  const uv = g.attributes.uv, n = g.attributes.normal;
-  for (let i = 0; i < uv.count; i++) {
-    const nx = Math.abs(n.getX(i)), ny = Math.abs(n.getY(i));
-    const sx = nx > 0.5 ? d : w, sy = ny > 0.5 ? d : h;
-    uv.setXY(i, uv.getX(i) * sx / 9, uv.getY(i) * sy / 18);
-  }
-  return g;
+// ---------- arazi yüksekliği (z yönünde 1200 m periyodik) ----------
+const PERIOD = 1200;
+function terrainH(hills, x, z, seed) {
+  const ax = Math.abs(x); if (!hills || (!hills.near && !hills.far)) return 0;
+  const w = (k) => (2 * Math.PI * k) / PERIOD, sx = x > 0 ? 1.7 : 0.6;
+  const n1 = 0.5 + 0.25 * Math.sin(w(3) * z + sx + seed) + 0.15 * Math.sin(w(7) * z + x * 0.021) + 0.1 * Math.sin(w(13) * z + x * 0.05 + seed * 2);
+  const n2 = 0.55 + 0.3 * Math.sin(w(2) * z + sx * 2 + seed) + 0.15 * Math.sin(w(5) * z + x * 0.008);
+  const s = (a, b, t) => { const k = Math.min(1, Math.max(0, (t - a) / (b - a))); return k * k * (3 - 2 * k); };
+  let h = hills.near * s(16, 90, ax) * n1 + hills.far * s(120, 420, ax) * n2;
+  if (hills.dunes) h += 2.2 * s(14, 40, ax) * (Math.sin(x * 0.09 + w(17) * z) * 0.5 + 0.5) * Math.sin(w(23) * z + x * 0.03);
+  return h;
 }
 
-class Instanced {
-  constructor(scene, geo, mat, cap, shadow = true) {
-    this.mesh = new THREE.InstancedMesh(geo, mat, cap); this.mesh.castShadow = shadow; this.mesh.receiveShadow = true;
-    this.mesh.count = 0; this.mesh.frustumCulled = false; this.cap = cap; scene.add(this.mesh);
-  }
+// Yol dokusu: gerçek asfalt fotoğrafı + şerit çizgileri
+function roadTextures(L, theme) {
+  const W = 512, H = 1024, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const px = W / (ROAD.halfWidth * 2), toX = (m) => (m + ROAD.halfWidth) * px;
+  const tileW = W / 3, tileH = tileW;
+  const tile = (img, ctx) => { for (let ty = 0; ty < H; ty += tileH) for (let tx = 0; tx < W; tx += tileW) ctx.drawImage(img, tx, ty, tileW, tileH); };
+  if (L.ad?.image) tile(L.ad.image, x); else { x.fillStyle = '#3a3b3e'; x.fillRect(0, 0, W, H); }
+  x.fillStyle = theme === 'city' ? 'rgba(10,12,16,0.35)' : 'rgba(30,30,32,0.18)'; x.fillRect(0, 0, W, H);
+  for (const lx of [-3.4, 0, 3.4]) { const g = x.createLinearGradient(toX(lx - 1.1), 0, toX(lx + 1.1), 0); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.3, 'rgba(0,0,0,0.16)'); g.addColorStop(0.5, 'rgba(0,0,0,0.02)'); g.addColorStop(0.7, 'rgba(0,0,0,0.16)'); g.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = g; x.fillRect(toX(lx - 1.1), 0, 2.2 * px, H); }
+  const mark = (x0, x1, y0, y1, col = '#f1f1ee') => { x.fillStyle = col; x.globalAlpha = 0.93; x.fillRect(toX(x0), y0, (x1 - x0) * px, y1 - y0); x.globalAlpha = 1; };
+  for (const e of [-5.2, 5.05]) mark(e, e + 0.15, 0, H);
+  for (const d of [-1.7, 1.7]) { mark(d - 0.07, d + 0.07, 0, H * 0.25); mark(d - 0.07, d + 0.07, H * 0.5, H * 0.75); }
+  // kenar: toprak / kar / kaldırım
+  const sh = { desert: '#b08c5c', snow: '#e9eef5', city: '#6b6e74', forest: '#5a4a35', village: '#6f6247' }[theme];
+  x.fillStyle = sh; x.fillRect(0, 0, toX(-5.75), H); x.fillRect(toX(5.75), 0, W - toX(5.75), H);
+  const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
+  const mk = (img) => { if (!img?.image) return null; const cc = document.createElement('canvas'); cc.width = W; cc.height = H; tile(img.image, cc.getContext('2d')); return new THREE.CanvasTexture(cc); };
+  const normal = mk(L.an), rough = mk(L.ar);
+  for (const t of [map, normal, rough]) if (t) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+  return { map, normal, rough };
 }
 
+// ---------- tabela tanımları ----------
 const SIGNS = {
   village: [['warn', '🐄'], ['warn', '🚸'], ['warn', '🚜'], ['warn', '🐑'], ['limit', '50'], ['dir', 'Köy Meydanı|2 km'], ['name', 'YEŞİL KÖY']],
   forest: [['warn', '🦌'], ['warn', '🐻'], ['warn', '🌲'], ['limit', '70'], ['dir', 'Şelale|5 km'], ['name', 'ÇAM ORMANI']],
@@ -82,260 +76,210 @@ const SIGNS = {
   snow: [['warn', '❄️'], ['warn', '⛷️'], ['warn', '🦌'], ['limit', '40'], ['dir', 'Kayak Merkezi|3 km'], ['name', 'KARLI DAĞ']],
   city: [['warn', '🚦'], ['warn', '🚸'], ['warn', '🚲'], ['limit', '60'], ['dir', 'Şehir Merkezi|1 km'], ['name', 'GECE ŞEHRİ']],
 };
+function buildingGeo(w, h, d) {
+  const g = new THREE.BoxGeometry(w, h, d); g.translate(0, h / 2, 0);
+  const uv = g.attributes.uv, n = g.attributes.normal;
+  for (let i = 0; i < uv.count; i++) { const nx = Math.abs(n.getX(i)), ny = Math.abs(n.getY(i)); uv.setXY(i, uv.getX(i) * (nx > 0.5 ? d : w) / 9, uv.getY(i) * (ny > 0.5 ? d : h) / 18); }
+  return g;
+}
 
 export class World {
   constructor(engine, theme, seed = 1) {
     this.engine = engine; this.theme = theme; this.T = THEMES[theme]; this.seed = seed;
+    const T = this.T, L = loaded[theme] || {}, q = engine.quality;
     const scene = this.scene = new THREE.Scene();
-    const T = this.T, q = engine.quality;
-    scene.fog = new THREE.FogExp2(T.fog, T.fogD);
-    // gökyüzü + ortam yansımaları
-    const pmrem = new THREE.PMREMGenerator(engine.renderer);
-    if (!T.night) {
-      const sky = this.sky = new Sky(); sky.scale.setScalar(4500);
-      const u = sky.material.uniforms;
-      u.turbidity.value = T.turb; u.rayleigh.value = T.rayl; u.mieCoefficient.value = 0.005; u.mieDirectionalG.value = 0.8;
-      if (u.cloudCoverage) { u.cloudCoverage.value = T.clouds; u.cloudDensity.value = 0.45; }
-      const phi = THREE.MathUtils.degToRad(90 - T.elev), th = THREE.MathUtils.degToRad(T.azim);
-      this.sunDir = new THREE.Vector3().setFromSphericalCoords(1, phi, th);
-      u.sunPosition.value.copy(this.sunDir);
-      const envScene = new THREE.Scene(); const sky2 = new Sky(); sky2.scale.setScalar(1000); sky2.material = sky.material; envScene.add(sky2);
-      const gnd = new THREE.Mesh(new THREE.CircleGeometry(900, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(T.hemiG).multiplyScalar(0.6) })); gnd.rotation.x = -Math.PI / 2; gnd.position.y = -5; envScene.add(gnd);
-      scene.environment = pmrem.fromScene(envScene, 0.02).texture;
-      scene.add(sky);
-    } else {
-      this.sunDir = new THREE.Vector3(-0.4, 0.8, -0.3).normalize();
-      scene.background = new THREE.Color(0x070b18);
-      const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-      scene.environment = env; scene.environmentIntensity = 0.18;
-      // yıldızlar
-      const sp = new Float32Array(1500 * 3), r = rng(4);
-      for (let i = 0; i < 1500; i++) { const v = new THREE.Vector3().setFromSphericalCoords(1500, Math.acos(r() * 0.9), r() * Math.PI * 2); sp.set([v.x, v.y, v.z], i * 3); }
-      const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-      this.stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, fog: false }));
-      scene.add(this.stars);
-      const moon = this.moon = new THREE.Mesh(new THREE.SphereGeometry(40, 24, 16), new THREE.MeshBasicMaterial({ color: 0xfff6dd, fog: false }));
-      scene.add(moon);
-    }
-    pmrem.dispose();
+    scene.fog = new THREE.FogExp2(T.horizon, T.fogD);
+    // gökyüzü ve yansımalar
+    const el = (0.5 - T.v) * Math.PI, az = (T.u - 0.5) * Math.PI * 2;
+    const wantAz = Math.atan2(-0.35, -0.94); // güneş solda, hafif önde
+    this.skyRot = az - wantAz;
+    const lightEl = T.night ? 0.9 : Math.max(el, THREE.MathUtils.degToRad(28));
+    this.sunDir = new THREE.Vector3(Math.cos(lightEl) * Math.cos(wantAz), Math.sin(lightEl), Math.cos(lightEl) * Math.sin(wantAz)).normalize();
+    if (L.sky) {
+      L.sky.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = L.sky; scene.backgroundRotation.set(0, this.skyRot, 0);
+      const pm = new THREE.PMREMGenerator(engine.renderer);
+      this.envRT = pm.fromEquirectangular(L.sky); scene.environment = this.envRT.texture; scene.environmentRotation.set(0, this.skyRot, 0);
+      scene.environmentIntensity = T.env; pm.dispose();
+    } else { scene.background = new THREE.Color(T.horizon); }
     // ışıklar
     this.hemi = new THREE.HemisphereLight(T.hemiS, T.hemiG, T.hemiI); scene.add(this.hemi);
     const sun = this.sun = new THREE.DirectionalLight(T.sun, T.sunI);
     sun.castShadow = q.shadows > 0;
     if (sun.castShadow) {
       sun.shadow.mapSize.set(q.shadows, q.shadows);
-      const c = sun.shadow.camera; c.left = -28; c.right = 28; c.top = 40; c.bottom = -40; c.near = 1; c.far = 160;
-      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03; sun.shadow.radius = 3;
+      const c = sun.shadow.camera; c.left = -40; c.right = 40; c.top = 60; c.bottom = -40; c.near = 1; c.far = 220;
+      sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
     }
     scene.add(sun); scene.add(sun.target);
-    // zemin
-    const gt = makeGroundTextures(theme);
-    const GS = 10; gt.map.repeat.set(700 / GS, 900 / GS); gt.normal.repeat.copy(gt.map.repeat);
-    this.groundTile = GS;
-    const ground = this.ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 900), new THREE.MeshStandardMaterial({ map: gt.map, normalMap: gt.normal, roughness: theme === 'snow' ? 0.6 : 0.95, normalScale: new THREE.Vector2(0.8, 0.8) }));
-    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.04; ground.receiveShadow = true; scene.add(ground);
+    // arazi (tepeler ve dağlar)
+    this.buildTerrain(L);
     // yol
-    const rt = makeRoadTextures(theme);
-    const RL = 600; for (const t of [rt.map, rt.rough, rt.normal]) t.repeat.set(1, RL / ROAD.texLen);
-    const road = this.road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD.halfWidth * 2, RL), new THREE.MeshStandardMaterial({ map: rt.map, roughnessMap: rt.rough, normalMap: rt.normal, normalScale: new THREE.Vector2(0.6, 0.6), roughness: 1, metalness: theme === 'city' ? 0.15 : 0 }));
-    road.rotation.x = -Math.PI / 2; road.position.y = 0.005; road.receiveShadow = true; scene.add(road);
-    this.roadLen = RL;
-    // bordür / bariyer
-    this.rail = new Instanced(scene, geos().box, new THREE.MeshStandardMaterial({ color: theme === 'city' ? 0x9aa0a8 : 0xc9ccd0, metalness: 0.85, roughness: 0.35 }), 2, true);
-    this.posts = new Instanced(scene, geos().box, new THREE.MeshStandardMaterial({ color: 0x6b6e72, metalness: 0.6, roughness: 0.5 }), 260, true);
-    this.reflectors = new Instanced(scene, geos().box, new THREE.MeshStandardMaterial({ color: 0xff6a00, emissive: 0xff4400, emissiveIntensity: 1.2 }), 260, false);
-    this.buildProps();
-    this.buildBackdrop();
+    const rt = roadTextures(L, theme), RL = 600;
+    for (const t of [rt.map, rt.normal, rt.rough]) if (t) t.repeat.set(1, RL / ROAD.texLen);
+    const road = this.road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD.halfWidth * 2, RL), new THREE.MeshStandardMaterial({
+      map: rt.map, normalMap: rt.normal, roughnessMap: rt.rough, normalScale: new THREE.Vector2(0.9, 0.9), roughness: theme === 'city' ? 0.55 : 1, metalness: theme === 'city' ? 0.1 : 0 }));
+    road.rotation.x = -Math.PI / 2; road.position.y = 0.01; road.receiveShadow = true; scene.add(road); this.roadLen = RL;
+    // kaldırım taşı (bordür)
+    const curbMat = new THREE.MeshStandardMaterial({ color: theme === 'snow' ? 0xdfe6ee : 0xb9b6ae, roughness: 0.8 });
+    this.curbs = [-1, 1].map(s => { const m = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.16, RL), curbMat); m.position.set(s * (ROAD.halfWidth + 0.1), 0.06, 0); m.receiveShadow = true; scene.add(m); return m; });
+    // dekor
+    this.props = new PropInstancer(scene, Math.round(70 * q.props));
+    this.buildSigns();
+    if (theme === 'city') this.buildCityBlocks();
     this.chunks = new Map(); this.chunkLen = 40; this.lastKey = '';
+    if (T.night) this.buildLampGlow();
   }
 
-  buildProps() {
-    const G = geos(), th = this.theme, S = this.scene, cap = 1400;
-    const M = (o) => new THREE.MeshStandardMaterial(o);
-    this.kinds = {};
-    const K = (name, geo, mat, c = cap, shadow = true) => { this.kinds[name] = new Instanced(S, geo, mat, c, shadow); };
-    K('trunk', G.trunk, M({ color: 0x5a4030, roughness: 0.95 }));
-    K('leafy', G.leafy, M({ color: 0xffffff, roughness: 0.85 }));
-    K('pine', G.pine, M({ color: 0xffffff, roughness: 0.9 }));
-    K('snowcap', G.snowcap, M({ color: 0xf4f8ff, roughness: 0.7 }), cap, false);
-    K('rock', G.rock, M({ color: 0xffffff, roughness: 0.9, flatShading: true }));
-    K('bush', G.bush, M({ color: 0xffffff, roughness: 0.9 }));
-    K('cactus', G.cactus, M({ color: 0x4f7a3a, roughness: 0.75 }), 400);
-    K('wall', G.wall, M({ color: 0xffffff, roughness: 0.85 }), 300);
-    K('roof', G.roof, M({ color: 0xffffff, roughness: 0.7 }), 300);
-    K('win', G.box, M({ color: 0x1a2430, roughness: 0.08, metalness: 0.4, emissive: th === 'city' ? 0xffc870 : 0x000000, emissiveIntensity: 0.8 }), 1200, false);
-    K('door', G.box, M({ color: 0x5b3a22, roughness: 0.6 }), 300, false);
-    K('pole', G.pole, M({ color: 0x3c4046, metalness: 0.7, roughness: 0.4 }), 300);
-    K('lamp', G.lampHead, M({ color: 0xffffff, emissive: 0xffe2a8, emissiveIntensity: th === 'city' ? 4 : 0.3 }), 300, false);
-    K('fence', G.box, M({ color: 0x8a6a48, roughness: 0.9 }), 1200);
-    K('hay', G.hay, M({ color: 0xd9b45a, roughness: 1 }), 200);
-    K('snowman', G.snowman, M({ color: 0xffffff, roughness: 0.6 }), 100);
-    // yol levhaları
-    this.signDefs = SIGNS[th] || SIGNS.village;
-    this.signDefs.forEach(([kind, text], i) => {
-      const t = makeSignTexture(kind, text);
-      const w = kind === 'name' || kind === 'dir' ? 2.4 : 1.25, h = kind === 'name' || kind === 'dir' ? 1.2 : 1.25;
-      const g = new THREE.PlaneGeometry(w, h); g.translate(0, h / 2, 0);
-      const mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: th === 'city' ? 0.35 : 0.08 });
-      K('sign' + i, g, mat, 40, true);
+  buildTerrain(L) {
+    const T = this.T, W = 1000, LEN = PERIOD * 2, SX = 100, SZ = 240;
+    const g = new THREE.PlaneGeometry(W, LEN, SX, SZ); g.rotateX(-Math.PI / 2);
+    const p = g.attributes.position, uv = g.attributes.uv;
+    for (let i = 0; i < p.count; i++) {
+      let x = p.getX(i); const z = p.getZ(i);
+      // yol kenarına daha sık köşe noktası
+      const ax = Math.abs(x); if (ax < 100) x = Math.sign(x) * (ax * ax / 100);
+      p.setX(i, x); p.setY(i, terrainH(T.hills, x, z, this.seed % 7) - 0.04);
+      uv.setXY(i, x / 9, z / 9);
+    }
+    g.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ map: L.gd || null, normalMap: L.gn || null, roughnessMap: L.gr || null, color: L.gd ? T.groundTint : 0x6d8a4a, roughness: 1, normalScale: new THREE.Vector2(1.2, 1.2) });
+    for (const t of [L.gd, L.gn, L.gr]) if (t) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; }
+    this.terrain = new THREE.Mesh(g, mat); this.terrain.receiveShadow = true; this.scene.add(this.terrain);
+  }
+  heightAt(x, z) { return terrainH(this.T.hills, x, z, this.seed % 7); }
+
+  buildSigns() {
+    const S = this.scene, th = this.theme;
+    this.signDefs = SIGNS[th] || SIGNS.village; this.signInst = [];
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x8a9098, metalness: 0.8, roughness: 0.35 });
+    const poleGeo = new THREE.CylinderGeometry(0.05, 0.05, 1, 8); poleGeo.translate(0, 0.5, 0);
+    this.poles = new THREE.InstancedMesh(poleGeo, poleMat, 60); this.poles.count = 0; this.poles.castShadow = true; this.poles.frustumCulled = false; S.add(this.poles);
+    this.signDefs.forEach(([kind, text]) => {
+      const t = makeSignTexture(kind, text), big = kind === 'name' || kind === 'dir';
+      const w = big ? 2.4 : 1.25, h = big ? 1.2 : 1.25, g = new THREE.PlaneGeometry(w, h); g.translate(0, h / 2, 0);
+      const mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: th === 'city' ? 0.35 : 0.06 });
+      const im = new THREE.InstancedMesh(g, mat, 30); im.count = 0; im.castShadow = true; im.frustumCulled = false; S.add(im); this.signInst.push(im);
     });
-    if (th === 'city') {
-      this.bVariants = [];
-      for (let i = 0; i < 6; i++) {
-        const w = 10 + (i % 3) * 5, h = 22 + i * 9, d = 12;
-        const mat = M({ map: makeFacadeTexture(30 + i), emissiveMap: makeWindowTexture(50 + i, 0.4), emissive: 0xffffff, emissiveIntensity: 1.6, roughness: 0.4, metalness: 0.3 });
-        this.bVariants.push({ w, h, d, inst: new Instanced(S, buildingGeo(w, h, d), mat, 120, true) });
-      }
+  }
+  buildCityBlocks() {
+    this.bVariants = [];
+    for (let i = 0; i < 6; i++) {
+      const w = 12 + (i % 3) * 6, h = 30 + i * 12, d = 14;
+      const mat = new THREE.MeshStandardMaterial({ map: makeFacadeTexture(30 + i), emissiveMap: makeWindowTexture(50 + i, 0.45), emissive: 0xffffff, emissiveIntensity: 1.7, roughness: 0.35, metalness: 0.4 });
+      const im = new THREE.InstancedMesh(buildingGeo(w, h, d), mat, 60); im.count = 0; im.frustumCulled = false; this.scene.add(im);
+      this.bVariants.push({ w, h, d, im });
     }
   }
-
-  buildBackdrop() {
-    const G = geos(), r = rng(this.seed + 99), th = this.theme;
-    this.backdrop = new THREE.Group(); this.scene.add(this.backdrop);
-    const col = th === 'snow' ? 0xe8eef6 : th === 'desert' ? 0xc89a62 : th === 'city' ? 0x0f1424 : th === 'forest' ? 0x34502e : 0x6f8f5a;
-    const mat = new THREE.MeshStandardMaterial({ color: col, roughness: 1, flatShading: true });
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, flatShading: true });
-    for (let i = 0; i < 26; i++) {
-      const side = i % 2 ? 1 : -1, x = side * (260 + r() * 300), z = -200 - r() * 700;
-      const h = th === 'village' ? 60 + r() * 80 : 120 + r() * 220, w = 160 + r() * 200;
-      const m = new THREE.Mesh(G.mountain, mat); m.scale.set(w, h, w * (0.7 + r() * 0.5)); m.position.set(x, -2, z); this.backdrop.add(m);
-      if (th === 'snow' || (th === 'forest' && h > 250)) { const c = new THREE.Mesh(G.mountain, capMat); c.scale.set(w * 0.36, h * 0.36, w * 0.3); c.position.set(x, h * 0.66 - 2, z); this.backdrop.add(c); }
-    }
+  buildLampGlow() {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+    const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(0.3, 'rgba(255,200,120,0.5)'); g.addColorStop(1, 'rgba(255,180,90,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+    this.glowGeo = new THREE.BufferGeometry(); this.glowGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(600 * 3), 3));
+    this.glow = new THREE.Points(this.glowGeo, new THREE.PointsMaterial({ map: new THREE.CanvasTexture(c), size: 7, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: true }));
+    this.glow.frustumCulled = false; this.scene.add(this.glow);
   }
 
-  // Bir 40m'lik parça için dekor listesi (deterministik)
+  // 40 m'lik parça içeriği (deterministik)
   chunkProps(k) {
-    const r = rng(this.seed * 31 + k * 977 + 13), th = this.theme, items = [];
-    const z0 = -k * this.chunkLen, q = this.engine.quality.props;
-    const P = (kind, x, y, z, sx, sy, sz, ry = 0, color) => items.push({ kind, x, y, z, sx, sy, sz, ry, color });
-    const treeCol = () => new THREE.Color().setHSL(th === 'forest' ? 0.3 + r() * 0.06 : 0.22 + r() * 0.1, 0.45 + r() * 0.2, th === 'forest' ? 0.18 + r() * 0.08 : 0.26 + r() * 0.1);
-    const pineCol = () => new THREE.Color().setHSL(0.36 + r() * 0.05, 0.4, th === 'snow' ? 0.2 + r() * 0.08 : 0.15 + r() * 0.07);
-    const n = Math.round((th === 'forest' ? 18 : th === 'city' ? 4 : 10) * q);
-    for (let i = 0; i < n; i++) {
-      const side = r() < 0.5 ? -1 : 1, x = side * (9.5 + Math.pow(r(), 1.6) * 90), z = z0 - r() * this.chunkLen, s = 0.8 + r() * 0.8;
-      if (th === 'village') {
-        if (r() < 0.6) { P('trunk', x, 0, z, s, 2.2 * s, s); P('leafy', x, 2.1 * s, z, 1.7 * s, 1.6 * s, 1.7 * s, r() * 6, treeCol()); }
-        else if (r() < 0.6) P('bush', x, 0.2, z, 1.2 * s, 1.1 * s, 1.2 * s, r() * 6, treeCol());
-        else { P('trunk', x, 0, z, s * 0.9, 1.6 * s, s * 0.9); P('pine', x, 0.8 * s, z, 2 * s, 3.2 * s, 2 * s, 0, pineCol()); }
-      } else if (th === 'forest') {
-        const h = 3 + r() * 4; P('trunk', x, 0, z, s, h * 0.5, s); P('pine', x, h * 0.25, z, 2.3 * s, h * 1.3, 2.3 * s, r() * 6, pineCol());
-        if (r() < 0.2) P('rock', x + 2, 0.2, z, 0.8 * s, 0.8 * s, 0.8 * s, r() * 6, new THREE.Color(0x6b6b66));
-      } else if (th === 'snow') {
-        const h = 3 + r() * 3.5; P('trunk', x, 0, z, s, h * 0.5, s); P('pine', x, h * 0.25, z, 2.2 * s, h * 1.3, 2.2 * s, r() * 6, pineCol()); P('snowcap', x, h * 0.25, z, 2.2 * s, h * 1.3, 2.2 * s, 0);
-      } else if (th === 'desert') {
-        if (r() < 0.45) P('cactus', x, 0, z, s, s * (0.8 + r() * 0.6), s, r() * 6);
-        else P('rock', x, 0.2, z, 1.5 * s * (1 + r() * 2), 1.3 * s * (1 + r()), 1.5 * s * (1 + r()), r() * 6, new THREE.Color().setHSL(0.07, 0.45, 0.38 + r() * 0.12));
-      } else if (th === 'city') {
-        P('trunk', side * (8 + r() * 1.5), 0, z, 0.8, 2, 0.8); P('leafy', side * (8 + r() * 1.5), 1.9, z, 1.2, 1.2, 1.2, r() * 6, treeCol());
-      }
+    const r = rng(this.seed * 31 + k * 977 + 13), th = this.theme, items = [], z0 = -k * this.chunkLen, CL = this.chunkLen, q = this.engine.quality.props;
+    const pick = (a) => a[Math.floor(r() * a.length)];
+    const P = (name, x, z, h, ry = r() * 6.28) => items.push({ name, x, z, h, ry, y: this.heightAt(x, z) });
+    const H = (name) => { const pr = { 'oak-tree': [7, 10], 'apple-tree': [4.5, 6], 'cypress-tree': [9, 13], 'olive-tree': [4, 5.5], 'bush': [1.2, 2], 'pine-tree': [9, 14], 'spruce-tree': [10, 16], 'birch-tree': [9, 12], 'autumn-tree': [7, 9], 'snowy-pine-tree': [9, 14], 'cactus': [3, 5], 'barrel-cactus': [1, 1.4], 'palm-tree': [8, 11], 'rocky-outcrop': [5, 9], 'boulder-rock-set': [1.6, 3], 'small-rock-set': [0.6, 1], 'grass-clump': [0.5, 0.9], 'sunflower': [1.6, 2.1], 'tree-stump': [0.6, 0.8] }[name] || [1, 1]; return pr[0] + r() * (pr[1] - pr[0]); };
+    const side = () => (r() < 0.5 ? -1 : 1);
+    const far = (a, b) => a + Math.pow(r(), 1.4) * (b - a);
+    const scatter = (names, n, a, b) => { for (let i = 0; i < n; i++) { const s = side(), nm = pick(names); P(nm, s * far(a, b), z0 - r() * CL, H(nm)); } };
+    const house = (names, a, b, h) => { const s = side(), nm = pick(names); P(nm, s * (a + r() * (b - a)), z0 - 6 - r() * (CL - 12), h ?? 7, s > 0 ? -Math.PI / 2 : Math.PI / 2); };
+    // korkuluk (bariyer) sırası
+    const rail = propReady('guard-rail');
+    if (rail && th !== 'village') {
+      const sz = rail.size, len = Math.max(sz.x, sz.z) * (0.82 / sz.y), along = sz.x > sz.z;
+      for (const s of [-1, 1]) for (let z = z0; z > z0 - CL; z -= len * 0.98) items.push({ name: 'guard-rail', x: s * 6.75, z: z - len / 2, h: 0.82, ry: along ? Math.PI / 2 : 0, y: 0 });
     }
-    // evler / binalar
-    if (th === 'village' || th === 'snow' || (th === 'forest' && r() < 0.35)) {
-      const hn = th === 'village' ? 2 : 1;
-      for (let i = 0; i < hn; i++) if (r() < 0.8) {
-        const side = r() < 0.5 ? -1 : 1, x = side * (16 + r() * 18), z = z0 - 8 - r() * 24;
-        const w = 6 + r() * 3, d = 7 + r() * 4, h = 3 + r() * 1.6;
-        const wallC = new THREE.Color().setHSL([0.1, 0.12, 0.08, 0.55, 0][Math.floor(r() * 5)], 0.25 + r() * 0.25, 0.75 + r() * 0.15);
-        const roofC = th === 'snow' ? new THREE.Color(0xf2f6fb) : new THREE.Color().setHSL(0.02 + r() * 0.04, 0.6, 0.35 + r() * 0.1);
-        P('wall', x, 0, z, w, h, d, 0, wallC); P('roof', x, h, z, w * 1.12, 3.6 + r() * 1.2, d * 1.08, 0, roofC);
-        P('pole', x - side * w * 0.2, h + w * 0.1, z + d * 0.25, 4, 1.4, 4, 0); // baca
-        const fx = x - side * (w / 2 + 0.02);
-        P('door', fx, 1.05, z, 0.08, 2.1, 1.0);
-        for (const dz of [-d * 0.3, d * 0.3]) P('win', fx, h * 0.55, z + dz, 0.1, 1.0, 1.2);
-        if (th === 'village' && r() < 0.7) for (let f = 0; f < 6; f++) P('fence', x - side * (w / 2 + 3), 0.5, z - d / 2 + f * (d / 5), 0.12, 1.0, 0.12);
-        if (th === 'village' && r() < 0.5) P('fence', x - side * (w / 2 + 3), 0.75, z, 0.08, 0.1, d, 0);
-        if (th === 'village' && r() < 0.4) P('hay', x + side * 6, 0, z + 8, 1, 1, 1, r() * 6);
-        if (th === 'snow' && r() < 0.5) P('snowman', x - side * (w / 2 + 4), 0, z + 4, 1, 1, 1, side > 0 ? -Math.PI / 2 : Math.PI / 2);
+    if (th === 'village') {
+      scatter(['grass-clump'], Math.round(26 * q), 7, 18);
+      scatter(['oak-tree', 'apple-tree', 'olive-tree', 'oak-tree', 'bush'], Math.round(9 * q), 11, 90);
+      if (r() < 0.6) { const s = side(), x0 = s * (12 + r() * 3); for (let i = 0; i < 5; i++) P('cypress-tree', x0, z0 - i * 7 - r() * 2, H('cypress-tree')); }
+      if (r() < 0.75) house(['cottage-house', 'stone-house', 'farmhouse'], 18, 34, 6.5 + r() * 1.5);
+      if (r() < 0.25) house(['barn', 'silo', 'windmill'], 34, 70, 10 + r() * 3);
+      if (r() < 0.35) { const s = side(), x0 = s * (16 + r() * 10), zc = z0 - 8 - r() * 20; for (let i = 0; i < 7; i++) for (let j = 0; j < 4; j++) P('sunflower', x0 + s * j * 1.4 + (r() - 0.5) * 0.4, zc - i * 1.3, H('sunflower'), r() * 0.6 - 0.3 + (s > 0 ? -1.2 : 1.2)); }
+      if (r() < 0.3) { const s = side(); P('cow', s * (14 + r() * 14), z0 - r() * CL, 1.55); }
+      if (r() < 0.35) { const s = side(); P(pick(['hay-bale', 'hay-bale', 'village-well']), s * (12 + r() * 10), z0 - r() * CL, r() < 0.7 ? 1.5 : 3.2); }
+      if (r() < 0.5) { const s = side(), x = s * (8.6 + r() * 0.4), zc = z0 - r() * 30; for (let i = 0; i < 4; i++) P('wooden-fence', x, zc - i * 2.6, 1.15, 0); }
+      P('power-pole', 9.6, z0 - 20, 9.5, 0);
+    } else if (th === 'forest') {
+      scatter(['grass-clump'], Math.round(16 * q), 7, 16);
+      scatter(['pine-tree', 'spruce-tree', 'pine-tree', 'birch-tree', 'autumn-tree'], Math.round(22 * q), 9.5, 85);
+      scatter(['tree-stump', 'small-rock-set', 'boulder-rock-set', 'bush'], Math.round(5 * q), 8, 30);
+      if (r() < 0.12) house(['log-cabin'], 20, 34, 6.5);
+    } else if (th === 'desert') {
+      scatter(['cactus', 'barrel-cactus', 'cactus', 'small-rock-set'], Math.round(9 * q), 9, 70);
+      scatter(['rocky-outcrop', 'boulder-rock-set'], Math.round(3 * q), 18, 110);
+      if (r() < 0.12) { const s = side(), x0 = s * (20 + r() * 25), zc = z0 - r() * CL; for (let i = 0; i < 4; i++) P('palm-tree', x0 + (r() - 0.5) * 9, zc + (r() - 0.5) * 9, H('palm-tree')); }
+      if (r() < 0.15) house(['adobe-house'], 18, 36, 6.5);
+      if (k % 2 === 0) P('power-pole', -9.6, z0 - 12, 9.5, 0);
+    } else if (th === 'snow') {
+      scatter(['snowy-pine-tree'], Math.round(20 * q), 9.5, 90);
+      scatter(['boulder-rock-set'], Math.round(2 * q), 10, 40);
+      if (r() < 0.35) house(['snowy-cabin', 'alpine-chalet'], 18, 34, 7 + r() * 2);
+      if (r() < 0.2) { const s = side(); P('snowman', s * (8.5 + r() * 4), z0 - r() * CL, 2, s > 0 ? -1.2 : 1.2); }
+    } else if (th === 'city') {
+      for (const s of [-1, 1]) {
+        let z = z0 - r() * 4;
+        while (z > z0 - CL) { const nm = pick(['shop-front', 'corner-shop', 'apartment-building', 'shop-front']); const h = nm === 'apartment-building' ? 24 : 11 + r() * 2; P(nm, s * (15 + h * 0.18), z - 7, h, s > 0 ? -Math.PI / 2 : Math.PI / 2); z -= 16 + r() * 4; }
+        if (r() < 0.6) P(pick(['office-tower', 'high-rise-apartment', 'skyscraper']), s * (40 + r() * 30), z0 - r() * CL, 40 + r() * 30, s > 0 ? -Math.PI / 2 : Math.PI / 2);
       }
-    }
-    if (th === 'city') {
-      for (const side of [-1, 1]) {
-        let z = z0; while (z > z0 - this.chunkLen) {
-          const v = Math.floor(r() * this.bVariants.length), b = this.bVariants[v];
-          items.push({ kind: 'b' + v, x: side * (14 + b.d / 2 + r() * 4), y: 0, z: z - b.w / 2, sx: 1, sy: 1, sz: 1, ry: Math.PI / 2 });
-          z -= b.w + 2 + r() * 4;
-        }
-      }
-    }
-    // yol levhaları: her 2-3 parçada bir, sağ kenarda
-    if (k % 3 === 1 || k % 25 === 3) {
-      const nameIdx = this.signDefs.findIndex(d => d[0] === 'name');
-      const i = k % 25 === 3 ? nameIdx : Math.floor(r() * this.signDefs.length);
-      const side = k % 25 === 3 ? 1 : (r() < 0.75 ? 1 : -1), x = side * 7.9, z = z0 - 20;
-      const big = this.signDefs[i][0] === 'name' || this.signDefs[i][0] === 'dir';
-      P('pole', x, 0, z, 0.9, big ? 2.2 : 2.3, 0.9);
-      if (big) P('pole', x + 0.9, 0, z, 0.9, 2.2, 0.9);
-      P('sign' + i, x + (big ? 0.45 : 0), big ? 2.0 : 2.1, z + 0.05, 1, 1, 1, side > 0 ? -0.25 : 0.25);
+      if (r() < 0.5) { const s = side(); P(pick(['bus-stop-shelter', 'park-bench', 'fire-hydrant']), s * 8.4, z0 - r() * CL, 1, s > 0 ? -Math.PI / 2 : Math.PI / 2); }
+      if (r() < 0.6) { const s = side(); P('oak-tree', s * (8.8 + r()), z0 - r() * CL, 6 + r() * 2); }
+      // uzak ışıklı bloklar
+      for (const s of [-1, 1]) { const v = Math.floor(r() * this.bVariants.length); items.push({ block: v, x: s * (90 + r() * 60), z: z0 - r() * CL, ry: Math.PI / 2 }); }
     }
     // sokak lambaları
-    if (th === 'city' || th === 'village' || th === 'snow') {
-      for (const side of [-1, 1]) {
-        const x = side * 7.2, z = z0 - (side > 0 ? 0 : this.chunkLen / 2);
-        P('pole', x, 0, z, 1, 6, 1); P('lamp', x - side * 0.6, 6, z, 1, 1, 1);
-      }
+    if (th === 'city' || th === 'village' || th === 'snow') for (const s of [-1, 1]) { const z = z0 - (s > 0 ? 4 : 24); P('street-light', s * 7.3, z, 7.2, s > 0 ? Math.PI : 0); items.push({ glow: true, x: s * 5.9, y: 7, z }); }
+    // levhalar
+    if (k % 3 === 1 || k % 25 === 3) {
+      const nameIdx = this.signDefs.findIndex(d => d[0] === 'name'); const i = k % 25 === 3 ? nameIdx : Math.floor(r() * this.signDefs.length);
+      const s = k % 25 === 3 ? 1 : (r() < 0.75 ? 1 : -1), big = this.signDefs[i][0] === 'name' || this.signDefs[i][0] === 'dir';
+      items.push({ sign: i, x: s * 7.9, z: z0 - 30, big, ry: s > 0 ? -0.25 : 0.25 });
     }
     return items;
   }
 
   rebuildInstances(minK, maxK) {
-    const all = [];
-    for (let k = minK; k <= maxK; k++) {
-      if (!this.chunks.has(k)) this.chunks.set(k, this.chunkProps(k));
-      all.push(...this.chunks.get(k));
-    }
+    for (let k = minK; k <= maxK; k++) if (!this.chunks.has(k)) this.chunks.set(k, this.chunkProps(k));
     for (const k of this.chunks.keys()) if (k < minK - 1 || k > maxK + 1) this.chunks.delete(k);
-    const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), e = new THREE.Euler(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
-    const counts = {};
-    const target = (kind) => kind[0] === 'b' && kind.length <= 2 ? this.bVariants[+kind.slice(1)].inst : this.kinds[kind];
-    for (const it of all) {
-      const inst = target(it.kind); if (!inst) continue;
-      const i = counts[it.kind] || 0; if (i >= inst.cap) continue; counts[it.kind] = i + 1;
-      e.set(0, it.ry, 0); qt.setFromEuler(e); pos.set(it.x, it.y, it.z); sc.set(it.sx, it.sy, it.sz);
-      m.compose(pos, qt, sc); inst.mesh.setMatrixAt(i, m);
-      if (it.color) inst.mesh.setColorAt(i, it.color);
+    const m = new THREE.Matrix4(), qt = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), pos = new THREE.Vector3(), one = new THREE.Vector3(1, 1, 1);
+    this.props.begin();
+    const signN = this.signInst.map(() => 0); let poleN = 0; const bN = (this.bVariants || []).map(() => 0); const glows = [];
+    for (let k = minK; k <= maxK; k++) for (const it of this.chunks.get(k) || []) {
+      if (it.name) this.props.add(it.name, it.x, it.y || 0, it.z, it.h, it.ry);
+      else if (it.glow) glows.push(it.x, it.y, it.z);
+      else if (it.sign !== undefined) {
+        const im = this.signInst[it.sign]; if (signN[it.sign] >= 30) continue;
+        qt.setFromAxisAngle(up, it.ry); pos.set(it.x + (it.big ? 0.45 : 0), it.big ? 2 : 2.1, it.z + 0.05); m.compose(pos, qt, one); im.setMatrixAt(signN[it.sign]++, m);
+        for (const dx of it.big ? [0, 0.9] : [0]) { if (poleN >= 60) break; pos.set(it.x + dx, 0, it.z); m.compose(pos, qt, new THREE.Vector3(1, it.big ? 2.2 : 2.3, 1)); this.poles.setMatrixAt(poleN++, m); }
+      } else if (it.block !== undefined) {
+        const b = this.bVariants[it.block]; if (bN[it.block] >= 60) continue; qt.setFromAxisAngle(up, it.ry); pos.set(it.x, 0, it.z); m.compose(pos, qt, one); b.im.setMatrixAt(bN[it.block]++, m);
+      }
     }
-    const allInst = [...Object.values(this.kinds), ...(this.bVariants || []).map(b => b.inst)];
-    for (const inst of allInst) {
-      const name = Object.keys(this.kinds).find(k => this.kinds[k] === inst) || ('b' + this.bVariants.findIndex(b => b.inst === inst));
-      inst.mesh.count = counts[name] || 0; inst.mesh.instanceMatrix.needsUpdate = true;
-      if (inst.mesh.instanceColor) inst.mesh.instanceColor.needsUpdate = true;
-    }
+    this.props.end();
+    this.signInst.forEach((im, i) => { im.count = signN[i]; im.instanceMatrix.needsUpdate = true; });
+    this.poles.count = poleN; this.poles.instanceMatrix.needsUpdate = true;
+    (this.bVariants || []).forEach((b, i) => { b.im.count = bN[i]; b.im.instanceMatrix.needsUpdate = true; });
+    if (this.glow) { const a = this.glowGeo.attributes.position; a.array.fill(0); a.array.set(glows.slice(0, 1800)); a.needsUpdate = true; this.glowGeo.setDrawRange(0, Math.min(600, glows.length / 3)); }
   }
 
   update(pz, camera, dt) {
-    // pz: oyuncunun z konumu (negatif ilerler)
-    const gs = this.groundTile; this.ground.position.z = Math.round(pz / gs) * gs - 250;
+    this.terrain.position.z = Math.round(pz / PERIOD) * PERIOD;
     this.road.position.z = Math.round(pz / 12) * 12 - this.roadLen / 2 + 120;
-    this.backdrop.position.z = pz;
-    if (this.sky) this.sky.position.copy(camera.position);
-    if (this.sky?.material.uniforms.time) this.sky.material.uniforms.time.value += dt;
-    if (this.stars) this.stars.position.copy(camera.position);
-    if (this.moon) this.moon.position.set(camera.position.x - 500, 420, camera.position.z - 1100);
-    const s = this.sun; s.target.position.set(0, 0, pz - 18); s.position.copy(s.target.position).addScaledVector(this.sunDir, 90);
-    // bariyer ve direkler
-    const segZ = Math.round(pz / 4) * 4, m = new THREE.Matrix4();
-    let i = 0;
-    for (const side of [-1, 1]) {
-      m.makeScale(0.08, 0.28, 520); m.setPosition(side * 6.55, 0.62, segZ - 200); this.rail.mesh.setMatrixAt(side > 0 ? 1 : 0, m);
-    }
-    this.rail.mesh.count = this.theme === 'city' || this.theme === 'snow' || this.theme === 'forest' || this.theme === 'desert' ? 2 : 0;
-    for (let z = segZ + 40; z > segZ - 440 && i < 258; z -= 4) for (const side of [-1, 1]) {
-      m.makeScale(0.12, 0.8, 0.12); m.setPosition(side * 6.62, 0.4, z); this.posts.mesh.setMatrixAt(i, m);
-      m.makeScale(0.03, 0.08, 0.18); m.setPosition(side * 6.5, 0.62, z); this.reflectors.mesh.setMatrixAt(i, m); i++;
-    }
-    this.posts.mesh.count = this.reflectors.mesh.count = this.rail.mesh.count ? i : (this.theme === 'village' ? i : 0);
-    if (this.theme === 'village') { this.reflectors.mesh.count = 0; }
-    this.posts.mesh.instanceMatrix.needsUpdate = true; this.reflectors.mesh.instanceMatrix.needsUpdate = true; this.rail.mesh.instanceMatrix.needsUpdate = true;
-    // dekor parçaları
-    const ck = Math.floor(-pz / this.chunkLen);
-    const range = this.engine.quality.range;
-    const minK = ck - 1, maxK = ck + Math.ceil(range / this.chunkLen);
-    const key = minK + ':' + maxK;
+    for (const c of this.curbs) c.position.z = this.road.position.z;
+    const s = this.sun; s.target.position.set(0, 0, pz - 22); s.position.copy(s.target.position).addScaledVector(this.sunDir, 120);
+    const ck = Math.floor(-pz / this.chunkLen), range = this.engine.quality.range;
+    const minK = ck - 1, maxK = ck + Math.ceil(range / this.chunkLen), key = minK + ':' + maxK;
     if (key !== this.lastKey) { this.lastKey = key; this.rebuildInstances(minK, maxK); }
   }
 
   dispose() {
-    this.scene.environment?.dispose?.();
-    for (const m of [this.ground.material, this.road.material]) { for (const k of ['map', 'normalMap', 'roughnessMap']) m[k]?.dispose(); m.dispose(); }
+    this.envRT?.dispose();
+    this.terrain.geometry.dispose(); this.road.material.map?.dispose(); this.road.material.normalMap?.dispose(); this.road.material.roughnessMap?.dispose();
   }
 }

@@ -18,7 +18,7 @@ export class Race {
     this.world = new World(engine, level.theme, opts.seed);
     this.scene = this.world.scene;
     this.track = new TrackView(this.scene, level, opts.seed);
-    engine.renderer.toneMappingExposure = this.world.T.exposure;
+    engine.renderer.toneMapping = THREE.NeutralToneMapping; engine.renderer.toneMappingExposure = this.world.T.exposure;
     engine.setBloom(this.world.T.bloom);
     this.camera = new THREE.PerspectiveCamera(62, engine.aspect, 0.3, 6000);
     // oyuncu arabası
@@ -327,6 +327,7 @@ export class Race {
   render(dt) { this.engine.render(this.scene, this.camera, dt); }
 
   dispose() {
+    this.engine.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.unbindInput(); engineStop();
     this.track.dispose(); this.world.dispose();
     $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = '';
