@@ -57,7 +57,7 @@ export class Engine {
       // akıcıysa netliği geri yükselt (iki ölçüm üst üste iyi olmalı; iniş-çıkış olursa kilitlenir)
       else if (fps >= 56 && !this.prLocked && this.pr < cap) { this.goodN = (this.goodN || 0) + 1; if (this.goodN >= 2) { this.pr = Math.min(cap, this.pr + 0.25); this.raised = true; this.goodN = 0; this.resize(); } }
       else this.goodN = 0;
-      else if (fps < 38 && this.onSlow) { this.slowN = (this.slowN || 0) + 1; this.onSlow(this.slowN); }
+      if (fps < 38 && this.pr <= 0.75 && this.onSlow) { this.slowN = (this.slowN || 0) + 1; this.onSlow(this.slowN); }
     }
   }
   resetFps() { this.fpsT0 = 0; this.slowN = 0; this.goodN = 0; this.prLocked = false; this.raised = false; }
