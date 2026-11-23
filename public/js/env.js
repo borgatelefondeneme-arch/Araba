@@ -1,6 +1,7 @@
 // Çevre modelleri (ağaç, ev, ahır, lamba, bariyer...): yükleme, boyut normalizasyonu, örnekleme (instancing)
 import * as THREE from 'three';
-import { loadGLTF } from './cars.js';
+import { loadGLTF, toFloat } from './cars.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // h: hedef yükseklik aralığı (m). Grab3D modelleri (CC0).
 export const PROPS = {
@@ -42,7 +43,7 @@ export function loadProp(name) {
     // tabanı (0,0,0)'a, merkezi eksene getir
     const base = new THREE.Matrix4().makeTranslation(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
     for (const pt of parts) pt.local.premultiply(base);
-    return { name, parts, size, root };
+    return { name, parts: bakeSolids(parts), size, root };
   });
   cache.set(name, p); p.catch(() => cache.delete(name));
   return p;
@@ -51,6 +52,30 @@ export const loadProps = (names) => Promise.all([...new Set(names)].map(n => loa
 const ready = new Map();
 export async function preloadProps(names) { const r = await loadProps(names); for (const t of r) if (t) ready.set(t.name, t); return r.filter(Boolean).length; }
 export const propReady = (n) => ready.get(n);
+
+// Dokusuz, düz renkli parçaları köşe rengine çevirip TEK parçada birleştir (model başına çizim sayısı ~5 kat azalır)
+let solidMat = null;
+function bakeSolids(parts) {
+  const keep = [], solids = [];
+  for (const p of parts) {
+    const m = p.material;
+    if (Array.isArray(m) || m.map || m.transparent || (m.emissive && m.emissive.getHex() && m.emissiveIntensity > 0)) keep.push(p); else solids.push(p);
+  }
+  if (solids.length < 2) return parts;
+  try {
+    const geos = solids.map(p => {
+      const g = toFloat(p.geometry); g.applyMatrix4(p.local); g.deleteAttribute('uv');
+      if (!g.attributes.normal) g.computeVertexNormals();
+      const n = g.attributes.position.count, c = new Float32Array(n * 3), col = p.material.color || new THREE.Color(1, 1, 1);
+      for (let i = 0; i < n; i++) { c[i * 3] = col.r; c[i * 3 + 1] = col.g; c[i * 3 + 2] = col.b; }
+      g.setAttribute('color', new THREE.BufferAttribute(c, 3)); return g;
+    });
+    const merged = mergeGeometries(geos, false); if (!merged) return parts;
+    solidMat ||= new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.05 });
+    solidMat.userData.shared = true;
+    return [...keep, { geometry: merged, material: solidMat, local: new THREE.Matrix4() }];
+  } catch (e) { console.warn('bake', e); return parts; }
+}
 
 // Tek bir sahne nesnesi (engeller için): hedef yükseklik/genişliğe ölçekli klon
 export function propObject(name, { h, w } = {}) {

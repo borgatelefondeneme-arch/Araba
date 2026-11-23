@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { World } from './world.js';
 import { TrackView } from './track.js';
-import { buildCar, spinWheels } from './cars.js';
+import { buildCar, spinWheels, raceModel } from './cars.js';
 import { applyMods, animateMods } from './mods.js';
 import { ROAD, makeBlobShadow, makeLabel } from './textures.js';
 import { sfx, engineStart, engineSet, engineStop } from './audio.js';
@@ -22,7 +22,8 @@ export class Race {
     engine.setBloom(this.world.T.bloom);
     this.camera = new THREE.PerspectiveCamera(62, engine.aspect, 0.3, 6000);
     // oyuncu arabası
-    this.car = buildCar(carDef.type, color, { finish: opts.custom?.finish }); this.scene.add(this.car);
+    this.car = buildCar(raceModel(carDef.type), color, { finish: opts.custom?.finish, merge: true });
+    if (!engine.quality.propShadows) this.car.traverse(o => { if (o.isMesh) o.castShadow = o.geometry.index ? o.geometry.index.count < 30000 : true; }); this.scene.add(this.car);
     try { applyMods(this.car, opts.custom || {}, opts.upg || {}); } catch (e) { console.warn('mods', e); }
     if (this.world.T.night) { // gece farları
       const hl = new THREE.SpotLight(0xfff1d6, 60, 70, 0.45, 0.6, 1.2); hl.position.set(0, 0.9, -this.car.userData.halfL); hl.target.position.set(0, 0, -this.car.userData.halfL - 25);
@@ -57,6 +58,12 @@ export class Race {
     this.remotes = new Map(); this.sendT = 0;
     if (this.mp) for (const p of opts.players || []) if (p.id !== opts.myId) this.addRemote(p);
 
+    // takılma olursa kaliteyi kendiliğinden düşür
+    engine.onSlow = (n) => {
+      if (n === 1) { this.world.sun.castShadow = false; }
+      else if (n === 2) { engine.quality.range = Math.min(engine.quality.range, 150); engine.quality.props = Math.min(engine.quality.props, 0.35); engine.quality.grass = 0; this.world.chunks.clear(); this.world.lastKey = ''; opts.onDegrade?.(); }
+      else if (n === 3 && engine.pr > 0.6) { engine.pr = 0.6; engine.resize(); }
+    };
     this.bindInput();
     this.hudInit();
     engineStart();
@@ -337,6 +344,7 @@ export class Race {
   }
 
   dispose() {
+    this.engine.onSlow = null;
     this.engine.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.unbindInput(); engineStop();
     this.track.dispose(); this.world.dispose();

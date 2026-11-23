@@ -255,7 +255,7 @@ export class TrackView {
         e.fly.vy -= 25 * dt; o.position.x += e.fly.vx * dt; o.position.y = Math.max(0, o.position.y + e.fly.vy * dt); o.position.z -= e.fly.vz * dt;
         o.rotation.x += e.fly.rx * dt; o.rotation.z += e.fly.rz * dt;
       } else if (e.collectT > 0) {
-        e.collectT += dt; o.scale.setScalar(1 + e.collectT * 3); o.position.y += dt * 6;
+        e.collectT += dt; o.scale.setScalar(Math.max(0.01, 1 - e.collectT * 5)); o.position.y += dt * 5; o.position.z = -dist - 1.2; // arabayla birlikte gidip küçülerek kaybolur
         if (e.collectT > 0.18) { o.visible = false; }
       } else {
         o.position.z = -e.z;

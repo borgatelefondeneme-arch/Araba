@@ -8,7 +8,7 @@ import { CARS, UPGRADES, MAX_UPG, upgradeCost, carStats, LEVELS, PAINTS, FINISHE
 import { FOCUS } from './mods.js';
 import { save, persist, resetSave } from './save.js';
 import { initAudio, setSound, sfx } from './audio.js';
-import { preloadModels } from './cars.js';
+import { preloadModels, raceModel } from './cars.js';
 import { trafficSet } from './track.js';
 import { preloadWorld } from './world.js';
 
@@ -49,7 +49,7 @@ function show(name) {
   if (name === 'map') renderMap($('map-wrap'), save, openLevelCard);
   if (name === 'garage') { garageIdx = CARS.findIndex(c => c.id === save.car); preview = {}; gtab = 'up'; renderGarage(); requestAnimationFrame(() => { showroom.zone = zoneFor('garage'); }); }
   if (name === 'mp') enterMp();
-  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; }
+  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; $('s-fps').checked = !!save.showFps; }
   wallet();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { initAudio(); sfx.click(); show(b.dataset.go); }));
@@ -180,14 +180,15 @@ async function startRace(level, o) {
   $('wallet').classList.add('hidden'); document.body.classList.remove('menu-bg');
   screen = 'race'; raceMode = o; currentLevel = level; paused = false;
   const car = carById(save.car);
-  const players = (o.players || []).map(p => ({ ...p, model: carById(p.car).type }));
-  try { await Promise.all([preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme, engine.quality)]); }
+  const players = (o.players || []).map(p => ({ ...p, model: raceModel(carById(p.car).type) }));
+  try { await Promise.all([preloadModels([raceModel(car.type), ...trafficSet(level), ...players.map(p => p.model)]), preloadWorld(level.theme, engine.quality)]); }
   catch (e) { console.warn(e); toast('Araç modelleri yüklenemedi'); }
   if (screen !== 'race' || raceMode !== o) return;
   race = new Race(engine, {
     level, carDef: car, color: carColor(car), custom: customOf(car), upg: upgOf(car), stats: carStats(car, save.upgrades[car.id]),
     seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: o.mp ? Math.max(1.5, o.countdown / 1000 - (performance.now() - o.t0) / 1000) : 3.2,
     onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
+    onDegrade: () => { if (save.quality === 'auto' || save.quality === 'medium' || save.quality === 'high') { save.quality = 'low'; persist(); toast('Akıcı oynanış için grafik kalitesi Düşük yapıldı'); } },
   });
   // gölgelendiricileri yükleme ekranındayken derle (yarış ortasında donma olmasın)
   try { await race.warmup(); } catch (e) { console.warn('warmup', e); }
@@ -308,6 +309,7 @@ function renderMpResults(final) {
 // ---------- Ayarlar ----------
 $('s-name').onchange = () => { save.name = $('s-name').value.trim() || 'Oyuncu'; persist(); };
 $('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); toast('Kalite, oyunu yeniden açınca uygulanır'); };
+$('s-fps').onchange = () => { save.showFps = $('s-fps').checked; persist(); };
 $('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); };
 $('s-full').onclick = () => document.documentElement.requestFullscreen?.().catch(() => toast('Bu cihaz tam ekranı desteklemiyor'));
 // ---------- Gizli deneme modu ----------
@@ -339,11 +341,17 @@ $('s-reset').onclick = () => {
 addEventListener('resize', () => { if (screen === 'garage' || screen === 'home') setTimeout(() => { showroom.zone = zoneFor(screen); }, 50); });
 
 // ---------- Ana döngü ----------
-let last = performance.now();
+let last = performance.now(), fpsShowT = 0;
+function fpsOverlay(dt) {
+  const el = $('fps'); if (!save.showFps) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden'); fpsShowT -= dt; if (fpsShowT > 0) return; fpsShowT = 0.5;
+  const i = engine.renderer.info.render; el.textContent = `${Math.round(engine.lastFps || 0)} FPS · ${engine.level} · ${i.calls} çizim · ${Math.round(i.triangles / 1000)}k üçgen · çöz ${engine.pr}`;
+}
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   if (race) { if (!paused) race.update(dt); race.render(dt); }
   else if (screen !== 'map') { showroom.update(dt); showroom.render(dt); }
+  fpsOverlay(dt);
   requestAnimationFrame(loop);
 }
 show('home');

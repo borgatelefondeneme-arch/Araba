@@ -17,6 +17,7 @@ export const MODELS = {
   'monster-truck': { file: 'monster-truck.glb' },
   'fire-truck': { file: 'fire-truck.glb', fixed: true },
   'concept': { file: 'CarConcept.glb', concept: true },
+  'concept-race': { file: 'CarConcept-race.glb', concept: true }, // yarış için: iç mekân yok, 48 bin üçgen
   // trafik
   '1990s-taxi': { file: '1990s-taxi.glb', fixed: true },
   'delivery-van': { file: 'delivery-van.glb' },
@@ -61,6 +62,28 @@ async function loadParts(dir, name) {
   dv.setUint32(20 + jl, bl, true); dv.setUint32(24 + jl, 0x004E4942, true); out.set(bin, 28 + jl);
   return loader.parseAsync(out.buffer, dir + '/');
 }
+// Yarış arabası: tekerlekler hariç gövde parçaları malzeme başına birleştirilir (çizim sayısı ~4 kat azalır)
+function buildMerged(key, color, opts) {
+  const car = buildCarFull(key, color, opts);
+  const ud = car.userData, wheelSet = new Set(); for (const w of ud.wheels) w.obj.traverse(o => wheelSet.add(o));
+  car.updateMatrixWorld(true);
+  const inv = new THREE.Matrix4().copy(ud.body.matrixWorld).invert();
+  const groups = new Map(), alias = new Map(), remove = [];
+  ud.body.traverse(o => {
+    if (!o.isMesh || wheelSet.has(o) || Array.isArray(o.material)) return;
+    const mat = o.material, mk = (mat.name || '').replace(/\.\d+$/, '') + '|' + mat.uuid;
+    const m = alias.get(mk) || (alias.set(mk, mat), mat);
+    const g = toFloat(o.geometry); g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+    if (!g.attributes.uv) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
+    if (!g.attributes.normal) g.computeVertexNormals();
+    (groups.get(m) || groups.set(m, []).get(m)).push(g); remove.push(o);
+  });
+  for (const o of remove) o.parent.remove(o);
+  for (const [mat, list] of groups) { const mg = mergeGeometries(list, false); if (!mg) continue; const mesh = new THREE.Mesh(mg, mat); mesh.castShadow = !opts.noShadow; mesh.receiveShadow = true; ud.body.add(mesh); }
+  return car;
+}
+// Yarışta kullanılacak (hafif) model anahtarı
+export const raceModel = (key) => (MODELS[key + '-race'] ? key + '-race' : key);
 export const preloadModels = (keys) => Promise.all([...new Set(keys)].map(loadModel));
 const ready = new Map();
 
@@ -196,7 +219,7 @@ function finishMaterials(tpl, color, finish, base) {
 // Senkron örnek oluşturma (model önceden yüklenmiş olmalı)
 // Trafik araçları: tüm parçalar malzeme başına TEK geometride birleştirilir (çizim sayısı 10-15 kat azalır)
 const liteCache = new Map();
-function toFloat(g) {
+export function toFloat(g) {
   const out = new THREE.BufferGeometry();
   for (const name of ['position', 'normal', 'uv']) {
     const a = g.attributes[name]; if (!a) continue;
@@ -235,6 +258,10 @@ function buildLite(key, color) {
 
 export function buildCar(key, color, opts = {}) {
   if (opts.lite && !opts.wheels) { try { return buildLite(key, color); } catch (e) { console.warn('lite', e); } }
+  if (opts.merge) { try { return buildMerged(key, color, opts); } catch (e) { console.warn('merge', e); } }
+  return buildCarFull(key, color, opts);
+}
+function buildCarFull(key, color, opts = {}) {
   const tpl = ready.get(key) || ready.get('hatchback') || ready.values().next().value;
   const car = tpl.clone(true);
   const base = color && color !== 'orig' ? paintedMaterials(tpl, color) : null;
