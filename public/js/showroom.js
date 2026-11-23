@@ -31,13 +31,14 @@ export class Showroom {
     this.target = null; // {rot, el, zoom}
     this.zone = { x: 0, y: 0, w: 1, h: 1 }; this.active = false;
     this.bindInput(engine.renderer.domElement);
+    const zone = document.getElementById('car-zone'); if (zone) this.bindInput(zone, true);
   }
 
-  bindInput(el) {
+  bindInput(el, always = false) {
     const pts = new Map(); let lastDist = 0;
-    const down = (e) => { if (!this.active) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); el.setPointerCapture?.(e.pointerId); this.auto = false; this.target = null; this.idleT = 0; this.rotV = 0; lastDist = 0; };
+    const down = (e) => { if (!this.active && !always) return; e.preventDefault?.(); pts.set(e.pointerId, { x: e.clientX, y: e.clientY }); el.setPointerCapture?.(e.pointerId); this.auto = false; this.target = null; this.idleT = 0; this.rotV = 0; lastDist = 0; };
     const move = (e) => {
-      if (!this.active || !pts.has(e.pointerId)) return;
+      if ((!this.active && !always) || !pts.has(e.pointerId)) return; e.preventDefault?.();
       const p = pts.get(e.pointerId), dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
       if (pts.size === 1) { const k = 6 / Math.max(300, innerWidth); this.rot += dx * k; this.rotV = dx * k * 60; this.el = THREE.MathUtils.clamp(this.el + dy * 0.004, 0.02, 1.1); }
       else if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (lastDist) this.zoom = THREE.MathUtils.clamp(this.zoom * d / lastDist, 0.7, 2.6); lastDist = d; }

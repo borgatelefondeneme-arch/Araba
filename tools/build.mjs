@@ -12,7 +12,7 @@ const PUB = path.join(ROOT, 'public'), DIST = path.join(ROOT, 'dist');
 fs.rmSync(DIST, { recursive: true, force: true });
 const ls = (d) => fs.readdirSync(path.join(PUB, d)).filter(f => !f.startsWith('.'));
 const b64 = (file) => fs.readFileSync(file).toString('base64');
-const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.mp3': 'audio/mpeg', '.glb': 'model/gltf-binary' };
+const MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.glb': 'model/gltf-binary' };
 const dataURL = (file) => `data:${MIME[path.extname(file)] || 'application/octet-stream'};base64,${b64(file)}`;
 
 // GLB -> tek parça glTF JSON. claude.ai sayfasında WebAssembly'ye güvenmemek için meshopt sıkıştırması açılır.

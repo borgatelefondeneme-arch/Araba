@@ -15,6 +15,28 @@
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
 <title>Turbo Köy</title>
 <link rel="stylesheet" href="css/style.css">
+<script>
+/* Açılış güvenliği: eski tarayıcılar için yedekler ve görünür hata mesajı */
+(function () {
+  var C = window.CanvasRenderingContext2D && CanvasRenderingContext2D.prototype;
+  if (C && !C.roundRect) C.roundRect = function (x, y, w, h, r) { r = Math.min(typeof r === 'number' ? r : (r && r[0]) || 0, w / 2, h / 2); this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r); this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath(); return this; };
+  function show(msg) {
+    if (document.getElementById('boot-err')) { document.getElementById('boot-err-msg').textContent += '\n' + msg; return; }
+    var d = document.createElement('div'); d.id = 'boot-err';
+    d.style.cssText = 'position:fixed;inset:0;z-index:999;background:#0e1420;color:#fff;font:16px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center';
+    d.innerHTML = '<div style="font-size:42px">🚗💨</div><b style="font-size:20px">Oyun açılamadı</b><pre id="boot-err-msg" style="white-space:pre-wrap;max-width:560px;color:#ffcc80;font-size:13px"></pre><div style="color:#9aa6bd;font-size:14px;max-width:520px">Bu yazının ekran görüntüsünü gönderirsen düzeltebilirim. Chrome veya Safari ile de deneyebilirsin.</div><button onclick="location.reload()" style="font:700 16px system-ui;padding:12px 22px;border-radius:14px;border:0;background:#ff6d00;color:#fff">Tekrar dene</button>';
+    (document.body || document.documentElement).appendChild(d); document.getElementById('boot-err-msg').textContent = msg;
+  }
+  window.__turboShowError = show;
+  var gl2 = false; try { gl2 = !!document.createElement('canvas').getContext('webgl2'); } catch (e) {}
+  if (!gl2) document.addEventListener('DOMContentLoaded', function () { show('Bu tarayıcı WebGL2 desteklemiyor (3D grafik için gerekli).\nTarayıcıyı güncelle ya da Chrome ile aç.\n' + navigator.userAgent); });
+  window.addEventListener('error', function (e) { if (!window.__turboReady) show('Hata: ' + (e.message || e.error) + (e.filename ? '\n' + e.filename.split('/').pop() + ':' + e.lineno : '') + '\n' + navigator.userAgent); });
+  window.addEventListener('unhandledrejection', function (e) { if (!window.__turboReady) show('Hata: ' + (e.reason && (e.reason.message || e.reason)) + '\n' + navigator.userAgent); });
+  setTimeout(function () { if (!window.__turboReady) show('Oyun 40 saniyede açılmadı (yavaş internet ya da desteklenmeyen tarayıcı).\n' + navigator.userAgent); }, 40000);
+})();
+</script>
+<script nomodule>document.addEventListener('DOMContentLoaded',function(){window.__turboShowError&&window.__turboShowError('Bu tarayıcı çok eski (JavaScript modülleri desteklenmiyor). Tarayıcıyı güncelle.');});</script>
+
 <script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
 </head>
 <body>
@@ -112,6 +134,12 @@
     <button class="btn" id="s-full">⛶ Tam ekran</button>
     <button class="btn danger" id="s-reset">İlerlemeyi sıfırla</button>
     <p class="muted small">Kalite değişikliği oyun yeniden açılınca uygulanır.</p>
+    <p id="s-version" class="muted small" style="text-align:center;cursor:default">Turbo Köy · sürüm 3.1</p>
+    <div id="s-secret" class="hidden" style="display:flex;flex-direction:column;gap:8px">
+      <label class="field">Gizli kod <input id="s-code" autocomplete="off" autocapitalize="characters" placeholder="Kodu yaz"></label>
+      <button class="btn primary" id="s-code-go">Uygula</button>
+      <button class="btn" id="s-dev-off">Deneme modunu kapat</button>
+    </div>
   </div>
 </section>
 

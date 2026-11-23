@@ -10,6 +10,10 @@ export const CARS = [
   { id: 'rally', name: 'Ralli Roket', type: 'rally-car', price: { diamonds: 60 }, base: { speed: 4, handling: 5, nitro: 3, magnet: 2, armor: 1 }, colors: ['#e53935', '#76ff03', '#ffffff', '#ff4081', 'orig'] },
   { id: 'monster', name: 'Canavar Kamyon', type: 'monster-truck', price: { diamonds: 80 }, base: { speed: 3, handling: 2, nitro: 3, magnet: 3, armor: 5 }, colors: ['#43a047', '#e53935', '#ff9800', '#212121', 'orig'] },
   { id: 'fire', name: 'İtfaiye', type: 'fire-truck', price: { diamonds: 100 }, base: { speed: 3, handling: 2, nitro: 4, magnet: 4, armor: 5 }, colors: ['orig'] },
+  { id: 'conceptgt', name: 'Konsept X GT', type: 'concept', price: { diamonds: 200 }, base: { speed: 5, handling: 5, nitro: 5, magnet: 2, armor: 2 }, colors: ['#ff6d00', '#121212', '#fafafa', '#ffd600', '#304ffe'],
+    kit: { finish: 'metal', spoiler: 'big', decal: 'stripes', rim: '#1a1a1a', tint: 'dark' }, look: { speed: 4, handling: 5, nitro: 5 } },
+  { id: 'conceptrally', name: 'Konsept X Ralli', type: 'concept', price: { diamonds: 170 }, base: { speed: 4, handling: 5, nitro: 4, magnet: 3, armor: 5 }, colors: ['#1e88e5', '#fafafa', '#43a047', '#d32f2f', '#ff9100'],
+    kit: { finish: 'gloss', spoiler: 'gt', decal: 'number', rim: '#e0e0e0' }, look: { armor: 5, speed: 2, nitro: 2 } },
   { id: 'concept', name: 'Konsept X (Ultra)', type: 'concept', price: { diamonds: 150 }, base: { speed: 5, handling: 5, nitro: 5, magnet: 3, armor: 3 }, colors: ['#a80000', '#e8e8ec', '#2b2d33', '#0d47a1', '#ff6d00'] },
 ];
 
@@ -89,4 +93,4 @@ export const DECALS = [
 export const TINTS = [
   { id: 'none', name: 'Şeffaf', price: 0 }, { id: 'light', name: 'Açık Film', price: 80 }, { id: 'dark', name: 'Koyu Film', price: 120 }, { id: 'black', name: 'Limuzin', price: 160 },
 ];
-export function defaultCustom(car) { return { paint: car.colors[0], finish: 'gloss', rim: 'orig', spoiler: 'none', neon: 'none', decal: 'none', tint: 'none' }; }
+export function defaultCustom(car) { return { paint: car.colors[0], finish: 'gloss', rim: 'orig', spoiler: 'none', neon: 'none', decal: 'none', tint: 'none', ...(car.kit || {}) }; }

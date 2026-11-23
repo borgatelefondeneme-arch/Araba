@@ -29,6 +29,9 @@ Oyunu bir bilgisayar (Windows / Mac / Linux) "sunucu" olarak yayınlar; telefon 
 ## Garaj
 Arabayı parmakla çevir, iki parmakla yakınlaştır. Sekmeler: Yükselt (motor → kaput hava girişi, nitro → egzoz ve N₂O yazısı, mıknatıs → tavanda mıknatıs, zırh → koruma demiri ve tavan lambası, yol tutuş → alçaltılmış gövde), Boya (24 renk), Kaplama (parlak, metalik, mat, sedef, şeker cila, krom), Jant, Kanat, Neon, Çıkartma, Cam filmi. Kilitli parçalar önce denenir, beğenirsen yıldızla alınır.
 
+## Deneme modu
+Ayarlar ekranının altındaki sürüm yazısına arka arkaya 5 kez dokun, açılan alana `TURBO2026` yaz. Tüm araçlar, parçalar ve bölümler açılır; "Deneme modunu kapat" ile gerçek ilerlemene dönülür.
+
 ## Birlikte oynamak
 1. İki cihazda da **Birlikte Oyna**'ya gir.
 2. Biri **Oda Kur**'a bassın; diğeri listede çıkan odaya **Katıl** desin (ya da 4 harfli kodu yazsın).
@@ -64,5 +67,6 @@ Arabayı parmakla çevir, iki parmakla yakınlaştır. Sekmeler: Yükselt (motor
 ## Kaynaklar ve lisanslar
 - Araç modelleri (Konsept X hariç): [Grab3D](https://grab3d.com) – CC0 (kamu malı).
 - Konsept X: [Khronos glTF Sample Assets – CarConcept](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept), © 2024 Darmstadt Graphics Group GmbH, model ve dokular Eric Chadwick, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-- Ses efektleri: ElevenLabs Sound Effects ile bu oyun için üretildi (`public/sfx`).
+- Ses efektleri: ElevenLabs Sound Effects ile bu oyun için üretildi (`public/sfx`). Motor sesi 4 devir kaydının vites kutusu benzetimiyle karıştırılmasıdır.
+- Çevre modelleri (`public/env`): Grab3D, CC0. Gökyüzü ve zemin dokuları (`public/sky`, `public/tex`): Poly Haven, CC0.
 - Uygulama simgesi ve köy yolu arka planı: yapay zekâ ile üretildi (`public/img`).

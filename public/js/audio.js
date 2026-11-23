@@ -1,14 +1,18 @@
 // Ses: ElevenLabs ile üretilmiş gerçekçi kayıtlar (public/sfx) + yedek sentez sesler
 import { assetURL } from './assets.js';
-let ctx = null, master, enabled = true;
+let ctx = null, master, comp, enabled = true;
 const buf = {};
-const FILES = ['engine_idle', 'engine_loop', 'engine_high', 'wind_loop', 'nitro', 'crash', 'bump', 'star', 'diamond', 'powerup', 'jump', 'land', 'horn', 'countdown', 'go', 'win', 'lose', 'tires'];
+const FILES = ['eng_idle.wav', 'eng_low.wav', 'eng_mid.wav', 'eng_high.wav', 'road.wav', 'shift.wav', 'nitro2.wav', 'crash2.wav', 'coin2.wav', 'bump', 'diamond', 'powerup', 'jump', 'land', 'horn', 'countdown', 'go', 'win', 'lose', 'tires'];
 
 export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   master = ctx.createGain(); master.gain.value = enabled ? 0.8 : 0; master.connect(ctx.destination);
-  for (const f of FILES) fetch(assetURL(`sfx/${f}.mp3`)).then(r => r.arrayBuffer()).then(a => ctx.decodeAudioData(a)).then(b => { buf[f] = b; }).catch(() => {});
+  for (const f of FILES) { const file = f.includes('.') ? f : f + '.mp3', key = f.replace(/\.\w+$/, '');
+    fetch(assetURL(`sfx/${file}`)).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no))).then(b => { buf[key] = b; }).catch(() => {}); }
+  // yumuşatma: hafif sıkıştırıcı (patlamaları törpüler)
+  comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
+  master.disconnect(); master.connect(comp); comp.connect(ctx.destination);
 }
 export function setSound(on) { enabled = on; if (master) master.gain.value = on ? 0.8 : 0; }
 
@@ -27,14 +31,14 @@ function tone(freq, dur, type = 'sine', vol = 0.3, slide = 0, delay = 0) {
 }
 let lastStar = 0;
 export const sfx = {
-  star: () => { const n = performance.now(); if (n - lastStar < 45) return; lastStar = n; play('star', 0.45, 0.95 + Math.random() * 0.15) || tone(1300, 0.12, 'sine', 0.15, 1.5); },
+  star: () => { const n = performance.now(); if (n - lastStar < 45) return; lastStar = n; play('coin2', 0.32, 0.97 + Math.random() * 0.08) || tone(1300, 0.12, 'sine', 0.15, 1.5); },
   diamond: () => play('diamond', 0.8) || tone(1320, 0.25, 'triangle', 0.2),
   power: () => play('powerup', 0.7) || tone(400, 0.3, 'square', 0.12, 3),
-  crash: () => play('crash', 0.9) || tone(90, 0.4, 'sawtooth', 0.25, 0.5),
+  crash: () => play('crash2', 0.85) || tone(90, 0.4, 'sawtooth', 0.25, 0.5),
   bump: () => play('bump', 0.7) || tone(120, 0.2, 'square', 0.2),
   jump: () => play('jump', 0.7) || tone(300, 0.25, 'triangle', 0.15, 2.2),
   land: () => play('land', 0.7),
-  nitro: () => play('nitro', 0.9) || tone(200, 0.6, 'sawtooth', 0.12, 3),
+  nitro: () => play('nitro2', 0.8) || tone(200, 0.6, 'sawtooth', 0.12, 3),
   beep: (hi) => (hi ? play('go', 0.8) : play('countdown', 0.7)) || tone(hi ? 1046 : 523, 0.3, 'square', 0.15),
   click: () => tone(700, 0.04, 'square', 0.05),
   win: () => play('win', 0.8) || [523, 659, 784, 1046].forEach((f, i) => tone(f, 0.3, 'triangle', 0.2, 1, i * 0.12)),
@@ -44,32 +48,58 @@ export const sfx = {
   tires: () => play('tires', 0.25, 0.9 + Math.random() * 0.2),
 };
 
-// Motor: rölanti / orta / yüksek devir kayıtları hıza göre karışır, perde (pitch) devirle yükselir
-let eng = null;
+// Motor: 4 farklı devir kaydı (900 / 2500 / 4500 / 6800 dev/dk) + vites kutusu benzetimi.
+// Hız arttıkça devir yükselir, vites atınca düşer; kayıtlar devire göre karışır ve hafifçe perdelenir.
+const LAYERS = [['eng_idle', 900], ['eng_low', 2500], ['eng_mid', 4500], ['eng_high', 6800]];
+const GEARS = [9, 15, 22, 30, 40, 70]; // her vitesin üst hızı (m/sn)
+let eng = null, engineWanted = false;
 function loopSrc(name) {
   const s = ctx.createBufferSource(), g = ctx.createGain();
-  s.buffer = buf[name]; s.loop = true; s.loopStart = 0.04; s.loopEnd = buf[name].duration - 0.04;
-  g.gain.value = 0; s.connect(g); g.connect(master); s.start(0, 0.04);
+  s.buffer = buf[name]; s.loop = true; g.gain.value = 0; s.connect(g); g.connect(eng.bus); s.start(0, Math.random() * buf[name].duration);
   return { s, g };
 }
 export function engineStart() {
   if (!ctx || eng) return;
-  if (!buf.engine_idle || !buf.engine_loop || !buf.engine_high) { setTimeout(() => { if (eng === null && engineWanted) engineStart(); }, 500); engineWanted = true; return; }
   engineWanted = true;
-  eng = { idle: loopSrc('engine_idle'), mid: loopSrc('engine_loop'), high: loopSrc('engine_high'), wind: buf.wind_loop ? loopSrc('wind_loop') : null };
+  if (!LAYERS.every(([n]) => buf[n])) { setTimeout(() => { if (!eng && engineWanted) engineStart(); }, 400); return; }
+  eng = { bus: ctx.createGain(), lp: ctx.createBiquadFilter(), gear: 0, rpm: 900, lastV: 0, lastT: ctx.currentTime, dip: 0 };
+  eng.lp.type = 'lowpass'; eng.lp.frequency.value = 5200; eng.bus.gain.value = 0.9;
+  eng.bus.connect(eng.lp); eng.lp.connect(master);
+  eng.layers = LAYERS.map(([n, rpm]) => ({ ...loopSrc(n), rpm }));
+  eng.road = buf.road ? loopSrc('road') : null;
 }
-let engineWanted = false;
 export function engineSet(speed, boost) {
-  if (!eng) return; const t = ctx.currentTime, k = Math.min(1.3, speed / 40);
-  const tri = (c, w) => Math.max(0, 1 - Math.abs(k - c) / w);
-  const set = (n, gain, rate) => { n.g.gain.setTargetAtTime(gain, t, 0.12); n.s.playbackRate.setTargetAtTime(rate, t, 0.12); };
-  set(eng.idle, 0.5 * tri(0, 0.35), 0.85 + k * 0.6);
-  set(eng.mid, 0.5 * tri(0.5, 0.45), 0.8 + k * 0.5);
-  set(eng.high, (0.45 * Math.min(1, Math.max(0, (k - 0.45) / 0.35))) + (boost ? 0.2 : 0), 0.75 + k * 0.35 + (boost ? 0.12 : 0));
-  if (eng.wind) set(eng.wind, Math.min(0.5, k * 0.35) + (boost ? 0.15 : 0), 0.9 + k * 0.2);
+  if (!eng) return;
+  const t = ctx.currentTime, dt = Math.max(0.001, t - eng.lastT); eng.lastT = t;
+  const v = Math.max(0, speed), acc = (v - eng.lastV) / dt; eng.lastV = v;
+  // vites
+  let g = eng.gear;
+  while (g < GEARS.length - 1 && v > GEARS[g]) g++;
+  while (g > 0 && v < GEARS[g - 1] * 0.8) g--;
+  if (g > eng.gear && v > 6) { play('shift', 0.35, 0.95 + Math.random() * 0.1); eng.dip = 0.12; }
+  eng.gear = g;
+  const lo = g ? GEARS[g - 1] * 0.8 : 0, hi = GEARS[g];
+  let target = 1000 + Math.min(1, Math.max(0, (v - lo) / (hi - lo))) * 5600;
+  if (v < 1) target = 900;
+  if (boost) target = Math.min(7000, target + 600);
+  eng.rpm += (target - eng.rpm) * Math.min(1, dt * 7);
+  eng.dip = Math.max(0, eng.dip - dt);
+  const r = eng.rpm, load = Math.min(1, Math.max(0.25, 0.45 + acc * 0.08)) + (boost ? 0.2 : 0);
+  // katman ağırlıkları (log devir uzayında üçgen), perde = devir / kayıt devri
+  const lr = Math.log(r);
+  const ws = eng.layers.map((L, i) => { const c = Math.log(L.rpm), w = 0.55; return Math.max(0, 1 - Math.abs(lr - c) / w); });
+  const sum = ws.reduce((a, b) => a + b, 0) || 1;
+  eng.layers.forEach((L, i) => {
+    const w = ws[i] / sum, rate = Math.min(1.45, Math.max(0.7, r / L.rpm));
+    L.g.gain.setTargetAtTime(Math.sqrt(w) * 0.42 * load * (eng.dip > 0 ? 0.55 : 1), t, 0.05);
+    L.s.playbackRate.setTargetAtTime(rate, t, 0.05);
+  });
+  eng.lp.frequency.setTargetAtTime(2600 + r * 0.6 + (boost ? 1500 : 0), t, 0.1);
+  if (eng.road) { eng.road.g.gain.setTargetAtTime(Math.min(0.3, v / 120), t, 0.15); eng.road.s.playbackRate.setTargetAtTime(0.85 + Math.min(0.4, v / 120), t, 0.15); }
 }
 export function engineStop() {
   engineWanted = false; if (!eng) return;
-  for (const n of Object.values(eng)) if (n) { try { n.g.gain.setTargetAtTime(0, ctx.currentTime, 0.1); n.s.stop(ctx.currentTime + 0.5); } catch {} }
+  const all = [...eng.layers, eng.road].filter(Boolean);
+  for (const n of all) { try { n.g.gain.setTargetAtTime(0, ctx.currentTime, 0.1); n.s.stop(ctx.currentTime + 0.5); } catch {} }
   eng = null;
 }

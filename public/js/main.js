@@ -22,11 +22,11 @@ setSound(save.sound);
 
 // ---------- yardımcılar ----------
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
-function wallet() { $('w-stars').textContent = save.stars; $('w-dias').textContent = save.diamonds; }
+function wallet() { $('w-stars').textContent = save.dev ? '∞' : save.stars; $('w-dias').textContent = save.dev ? '∞' : save.diamonds; }
 const carById = (id) => CARS.find(c => c.id === id) || CARS[0];
 const customOf = (c) => ({ ...defaultCustom(c), ...(save.custom[c.id] || {}) });
 const carColor = (c) => customOf(c).paint;
-const upgOf = (c) => save.upgrades[c.id] || {};
+const upgOf = (c) => { const u = { ...(save.upgrades[c.id] || {}) }; for (const [k, v] of Object.entries(c.look || {})) u[k] = Math.max(u[k] || 0, v); return u; }; // görünüm: yükseltme + aracın hazır kiti
 // arabanın ekranda büyük görüneceği bölge
 function zoneFor(name) {
   const W = innerWidth, H = innerHeight, land = W > H;
@@ -307,6 +307,27 @@ $('s-name').onchange = () => { save.name = $('s-name').value.trim() || 'Oyuncu';
 $('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); toast('Kalite, oyunu yeniden açınca uygulanır'); };
 $('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); };
 $('s-full').onclick = () => document.documentElement.requestFullscreen?.().catch(() => toast('Bu cihaz tam ekranı desteklemiyor'));
+// ---------- Gizli deneme modu ----------
+// Sürüm yazısına 5 kez dokun -> kod alanı açılır. Kod: TURBO2026
+let verTaps = 0, verT = 0;
+$('s-version').onclick = () => { const n = Date.now(); verTaps = n - verT < 4000 ? verTaps + 1 : 1; verT = n; if (verTaps >= 5) { $('s-secret').classList.remove('hidden'); $('s-dev-off').classList.toggle('hidden', !save.dev); } };
+$('s-code-go').onclick = () => {
+  const code = $('s-code').value.trim().toUpperCase().replace(/İ/g, 'I');
+  if (code !== 'TURBO2026') { toast('Kod yanlış'); return; }
+  if (!save.dev) save.devBackup = JSON.stringify({ stars: save.stars, diamonds: save.diamonds, owned: save.owned, items: save.items, upgrades: save.upgrades, unlocked: save.unlocked, levels: save.levels });
+  save.dev = true; save.stars = 999999; save.diamonds = 99999; save.unlocked = LEVELS.length;
+  for (const c of CARS) save.owned[c.id] = true;
+  for (const [f, list] of Object.entries({ finish: FINISHES, rim: RIMS, spoiler: SPOILERS, neon: NEONS, decal: DECALS, tint: TINTS })) for (const it of list) save.items[f + ':' + it.id] = true;
+  persist(); wallet(); sfx.buy(); $('s-code').value = ''; $('s-dev-off').classList.remove('hidden');
+  toast('🔓 Deneme modu açık: tüm arabalar, parçalar ve bölümler açıldı');
+};
+$('s-dev-off').onclick = () => {
+  if (!save.dev) return;
+  try { Object.assign(save, JSON.parse(save.devBackup || '{}')); } catch {}
+  save.dev = false; delete save.devBackup; if (!save.owned[save.car]) save.car = 'hatch';
+  persist(); wallet(); toast('Deneme modu kapandı, gerçek ilerlemene dönüldü'); $('s-dev-off').classList.add('hidden');
+};
+
 let resetArm = 0;
 $('s-reset').onclick = () => {
   if (Date.now() - resetArm > 3000) { resetArm = Date.now(); $('s-reset').textContent = 'Emin misin? Silmek için tekrar bas'; setTimeout(() => { $('s-reset').textContent = 'İlerlemeyi sıfırla'; }, 3000); return; }
@@ -325,4 +346,5 @@ function loop(now) {
 show('home');
 $('loading').classList.add('hidden');
 requestAnimationFrame(loop);
+window.__turboReady = true;
 window.__game = { get race() { return race; }, save, startRace, LEVELS, show };
