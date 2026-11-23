@@ -38,10 +38,23 @@ const cache = new Map();
 export function loadModel(key) {
   if (!MODELS[key]) key = 'hatchback';
   if (cache.has(key)) return cache.get(key);
-  const p = loader.loadAsync('models/' + MODELS[key].file.replace(/\.glb$/, '.' + FMT())).then(g => prepare(key, g.scene));
+  const name = MODELS[key].file.replace(/\.glb$/, '');
+  const p = (FMT() === 'parts' ? loadParts(name) : loader.loadAsync('models/' + name + '.' + FMT())).then(g => prepare(key, g.scene));
   cache.set(key, p);
   p.catch(() => cache.delete(key));
   return p;
+}
+// claude.ai sayfası data:/blob: indirmelerine izin vermeyebilir: geometri .txt (base64), dokular ayrı .jpg/.png
+async function loadParts(name) {
+  const [json, b64] = await Promise.all([fetch(`models/${name}.json`).then(r => r.json()), fetch(`models/${name}.geo.txt`).then(r => r.text())]);
+  const bin = Uint8Array.from(atob(b64.trim()), c => c.charCodeAt(0));
+  const enc = new TextEncoder().encode(JSON.stringify(json));
+  const jl = (enc.length + 3) & ~3, bl = (bin.length + 3) & ~3, total = 12 + 8 + jl + 8 + bl;
+  const out = new Uint8Array(total), dv = new DataView(out.buffer);
+  dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
+  dv.setUint32(12, jl, true); dv.setUint32(16, 0x4E4F534A, true); out.fill(0x20, 20, 20 + jl); out.set(enc, 20);
+  dv.setUint32(20 + jl, bl, true); dv.setUint32(24 + jl, 0x004E4942, true); out.set(bin, 28 + jl);
+  return loader.parseAsync(out.buffer, 'models/');
 }
 export const preloadModels = (keys) => Promise.all([...new Set(keys)].map(loadModel));
 const ready = new Map();

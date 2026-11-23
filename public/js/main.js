@@ -230,7 +230,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && rac
 function enterMp() {
   $('mp-name').value = save.name;
   net.connect();
-  $('mp-hint').textContent = net.mode === 'room' ? 'İki cihazda da bu sayfayı aynı Claude hesabıyla aç. Biri oda kursun, diğeri listeden katılsın.' : 'Tüm cihazlar aynı Wi-Fi\'de olmalı. Bir cihaz oda kurar, diğeri listeden katılır.';
+  $('mp-hint').textContent = net.mode === 'peer' ? 'Bir cihaz "Oda Kur"a bassın. Diğeri ekranda çıkan 4 harfli kodu yazıp "Katıl"a bassın. İnternet bağlantısı yeterli, aynı Wi-Fi gerekmez.' : net.mode === 'room' ? 'İki cihazda da bu sayfayı aynı Claude hesabıyla aç. Biri oda kursun, diğeri listeden katılsın.' : 'Tüm cihazlar aynı Wi-Fi\'de olmalı. Bir cihaz oda kurar, diğeri listeden katılır.';
   net.send({ t: 'profile', name: save.name, car: save.car, color: carColor(carById(save.car)) });
   net.send({ t: 'listRooms' });
   renderMpRoom();
@@ -274,6 +274,7 @@ net.on('open', () => $('mp-status').classList.add('on'));
 net.on('close', () => { $('mp-status').classList.remove('on'); if (screen === 'mp' && net.mode === 'ws') toast('Sunucu bağlantısı yok. Bilgisayarda "npm start" çalışıyor mu?'); });
 net.on('rooms', (m) => renderRooms(m.list));
 net.on('room', (m) => { mpRoom = m; if (screen === 'mp') renderMpRoom(); });
+net.on('rooms', (m) => { if (net.mode === 'peer' && !m.list.length) $('mp-rooms').innerHTML = '<p class="muted">Arkadaşının oda kodunu aşağıya yaz 👇</p>'; });
 net.on('error', (m) => toast(m.msg));
 net.on('start', (m) => { mpResults = []; startRace(LEVELS[m.level - 1], { mp: true, seed: m.seed, players: m.players, countdown: m.countdown, t0: performance.now() }); });
 net.on('state', (m) => race?.remoteState(m));
