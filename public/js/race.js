@@ -69,8 +69,9 @@ export class Race {
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color: 0x80d8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.4; ring.visible = false; this.scene.add(ring); this.ring = ring; this.ringT = 0;
     this.shock = 0.5; this.lastRank = 0; this.finalBanner = false;
+    this.touching = false; this.autoGas = !matchMedia('(pointer: coarse)').matches; // dokunmatikte: basılı tut = gaz
     // dikiz aynası (polis ve yarış modlarında): küçük hedefe 3 karede bir çizilir, her karede ekrana yapıştırılır
-    if (this.mode === 'police' || this.mode === 'race') {
+    if (false) { // dikiz aynası kaldırıldı (telefonda yavaşlatıyordu)
       this.mirrorRT = new THREE.WebGLRenderTarget(360, 120);
       this.mirrorCam = new THREE.PerspectiveCamera(48, 3, 0.5, 170);
       this.mirrorScene = new THREE.Scene(); this.mirrorOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -112,7 +113,7 @@ export class Race {
     const el = $('touch');
     let sx = 0, sy = 0, st = 0, used = false, startTx = 0, vUsed = false, lx = 0, lt = 0;
     const roadW = 10.6;
-    this.onTS = (e) => { const t = e.changedTouches ? e.changedTouches[0] : e; sx = lx = t.clientX; sy = t.clientY; st = lt = performance.now(); used = false; vUsed = false; startTx = this.tx; };
+    this.onTS = (e) => { this.touching = true; const t = e.changedTouches ? e.changedTouches[0] : e; sx = lx = t.clientX; sy = t.clientY; st = lt = performance.now(); used = false; vUsed = false; startTx = this.tx; };
     this.onTM = (e) => {
       const t = e.changedTouches ? e.changedTouches[0] : e;
       if (e.type === 'mousemove' && !(e.buttons & 1)) return;
@@ -127,6 +128,7 @@ export class Race {
       else if (!used && Math.abs(dx) > th && Math.abs(dx) > Math.abs(dy)) { used = true; this.steer(dx > 0 ? 1 : -1); }
     };
     this.onTE = (e) => {
+      this.touching = !!(e.touches && e.touches.length);
       const t = e.changedTouches ? e.changedTouches[0] : e;
       if (this.steerMode === 'lane' && !used && !vUsed && performance.now() - st < 350) this.steer(t.clientX < innerWidth / 2 ? -1 : 1);
     };
@@ -144,7 +146,7 @@ export class Race {
       else if (k === 'q' || k === 'e') this.useShock();
       else if (k === 'escape' || k === 'p') this.o.onPause?.();
     };
-    el.addEventListener('touchstart', this.onTS, { passive: true }); el.addEventListener('touchmove', this.onTM, { passive: false }); el.addEventListener('touchend', this.onTE);
+    el.addEventListener('touchstart', this.onTS, { passive: true }); el.addEventListener('touchmove', this.onTM, { passive: false }); el.addEventListener('touchend', this.onTE); el.addEventListener('touchcancel', this.onTE);
     el.addEventListener('mousedown', this.onTS); el.addEventListener('mousemove', this.onTM); el.addEventListener('mouseup', this.onTE);
     addEventListener('keydown', this.onKey); addEventListener('keyup', this.onKey);
     this.onNitroBtn = (e) => { e.stopPropagation(); e.preventDefault(); this.useNitro(); };
@@ -154,7 +156,7 @@ export class Race {
   }
   unbindInput() {
     const el = $('touch');
-    el.removeEventListener('touchstart', this.onTS); el.removeEventListener('touchmove', this.onTM); el.removeEventListener('touchend', this.onTE);
+    el.removeEventListener('touchstart', this.onTS); el.removeEventListener('touchmove', this.onTM); el.removeEventListener('touchend', this.onTE); el.removeEventListener('touchcancel', this.onTE);
     el.removeEventListener('mousedown', this.onTS); el.removeEventListener('mousemove', this.onTM); el.removeEventListener('mouseup', this.onTE);
     removeEventListener('keydown', this.onKey); removeEventListener('keyup', this.onKey); $('nitro-btn').removeEventListener('pointerdown', this.onNitroBtn); $('shock-btn').removeEventListener('pointerdown', this.onShockBtn);
   }
@@ -200,7 +202,7 @@ export class Race {
     // sıra / polis mesafesi, puan, kombo, şok
     if (this.mode === 'race') { const rank = 1 + this.rivals.filter(a => a.d > this.dist).length; this.setT('hud-rank', `${rank}/${this.rivals.length + 1}`); $('hud-rank').classList.toggle('first', rank === 1); }
     else if (this.mode === 'police') {
-      const g = this.policeGap ?? 99; this.setT('hud-rank', `🚓 ${Math.max(0, Math.round(g))} m`); $('hud-rank').classList.toggle('danger', g < 25);
+      const g = this.policeGap ?? 99; this.setT('hud-rank', this.policeAhead ? '🚓 önünde!' : `🚓 ${Math.max(0, Math.round(g))} m`); $('hud-rank').classList.toggle('danger', g < 25);
       const pg = $('police-glow'), close = this.state === 'run' && g < 45; pg.classList.toggle('on', close); pg.style.opacity = close ? Math.min(0.85, (45 - g) / 35 + 0.2) : 0;
     }
     if (this.mode === 'race' && this.state === 'run') {
@@ -223,7 +225,7 @@ export class Race {
     const st = this.stats;
     if (this.state === 'countdown') {
       this.cd -= dt; const n = Math.ceil(this.cd);
-      if (n !== this.lastBeep && n >= 0) { this.lastBeep = n; if (n > 0) { $('countdown').textContent = n; sfx.beep(false); } else { $('countdown').textContent = 'BAŞLA!'; sfx.beep(true); } }
+      if (n !== this.lastBeep && n >= 0) { this.lastBeep = n; if (n > 0) { $('countdown').textContent = n; sfx.beep(false); if (n === 3 && !this.autoGas) this.banner('Ekrana BASILI TUT = GAZ 👆'); } else { $('countdown').textContent = 'BAŞLA!'; sfx.beep(true); } }
       if (this.cd <= 0) { this.state = 'run'; setTimeout(() => { if ($('countdown').textContent === 'BAŞLA!') $('countdown').textContent = ''; }, 700); }
     }
     const running = this.state === 'run';
@@ -232,10 +234,12 @@ export class Race {
     const prog = this.dist / this.level.length;
     let target = this.level.speed + (st.speed - 1) * 1.1 + prog * 5;
     this.baseSpeed = target;
+    this.gas = this.autoGas || this.touching || this.nitroT > 0;
+    if (!this.gas) target = Math.max(7, target * 0.3); // ekrana basılmıyorsa yavaşla
     if (this.nitroT > 0) target *= 1.5;
     if (this.boostT > 0) { this.boostT -= dt; target *= 1.3; }
     if (!running) target = this.state === 'finish' ? 8 : this.state === 'crashed' ? 0 : 0;
-    const acc = this.speed < target ? (this.state === 'run' ? 0.9 + st.speed * 0.05 : 2) : 2.5;
+    const acc = this.speed < target ? (this.state === 'run' ? 0.9 + st.speed * 0.05 : 2) : (this.gas ? 2.5 : 1.1);
     this.speed += (target - this.speed) * Math.min(1, dt * acc);
     if (this.state === 'crashed') this.speed *= Math.pow(0.02, dt);
     this.dist += this.speed * dt;
@@ -287,6 +291,7 @@ export class Race {
     this.updateWind(dt);
     this.world.update(-this.dist, this.camera, dt);
     engineSet(this.speed, this.nitroT > 0);
+    if (!this.autoGas) $('hud').classList.toggle('nogas', this.state === 'run' && !this.gas);
     this.hud(dt);
   }
 
@@ -466,17 +471,29 @@ export class Race {
     for (const p of this.police) {
       const gap = this.dist - p.d, ps = this.baseSpeed || base;
       let ts = ps * (gap > 110 ? 1.2 : gap > 60 ? 1.04 : gap > 25 ? 0.98 : 0.95); // hata yapmazsan yetişemez
-      if (running) p.speed += (ts - p.speed) * Math.min(1, dt * 1.2); else if (this.state !== 'countdown') p.speed *= Math.pow(0.3, dt); else p.speed = 0;
-      p.d += p.speed * dt; p.tx = this.x; p.x += (p.tx - p.x) * (1 - Math.exp(-1.6 * dt));
-      if (running && gap < this.halfL + p.hl && Math.abs(p.x - this.x) < 2.4) {
+      // arada bir polis sirenle yandaki şeritten geçip önüne çıkar, sonra geri düşer
+      if (running && !p.pass && (p.passCd = (p.passCd ?? 9 + this.police.indexOf(p) * 7) - dt) <= 0 && gap < 70) { p.pass = { t: 0, lane: Math.abs(this.x) > 1.7 ? 0 : (Math.random() < 0.5 ? -3.4 : 3.4) }; this.popText('🚓 POLİS GEÇİYOR!'); }
+      if (p.pass) {
+        p.pass.t += dt; const v0 = this.speed || ps;
+        if (!p.pass.ph) p.pass.ph = 'over';
+        if (p.pass.ph === 'over') { ts = v0 * 1.6 + 6; if (gap < -22 || p.pass.t > 9) { p.pass.ph = 'ahead'; p.pass.t = 0; } }      // hızla öne geç
+        else if (p.pass.ph === 'ahead') { ts = v0; if (p.pass.t > 3) { p.pass.ph = 'back'; p.pass.t = 0; } }                       // birkaç saniye önünde kal
+        else { ts = v0 * 0.6; if (gap > 30) { p.pass = null; p.passCd = 12 + Math.random() * 8; } }                                 // yavaşlayıp geri düş
+        p.speed = ts; // geçiş sırasında hız doğrudan ayarlanır
+      }
+      else if (running) p.speed += (ts - p.speed) * Math.min(1, dt * 1.2); else if (this.state !== 'countdown') p.speed *= Math.pow(0.3, dt); else p.speed = 0;
+      p.d += p.speed * dt; p.tx = p.pass ? p.pass.lane : this.x; p.x += (p.tx - p.x) * (1 - Math.exp(-2.2 * dt));
+      for (const e of this.track.active) { if (e.alive && (e.kind === 'obst' || e.kind === 'traffic' || e.kind === 'crates') && Math.abs(e.z - p.d) < (e.hl || 0.6) + p.hl && Math.abs(e.x - p.x) < (e.hw || 1.3) + p.hw * 0.8) this.knock(e, Math.sign(e.x - p.x) || 1); }
+      if (p.pass && Math.abs(gap) < this.halfL + p.hl && Math.abs(p.x - this.x) < this.halfW + p.hw) { const sg = Math.sign(p.x - this.x) || 1; p.x += sg * 0.3; this.x -= sg * 0.2; this.tx -= sg * 0.2; }
+      else if (running && !p.pass && gap < this.halfL + p.hl && Math.abs(p.x - this.x) < 2.4) {
         p.d -= 45; this.crashes++; this.shake = 0.6; this.flash('rgba(41,121,255,0.5)'); sfx.crash();
         this.hearts--; this.popText(this.hearts > 0 ? `YAKALANDIN! ❤️-1` : 'YAKALANDIN! 🚓');
         if (this.hearts <= 0) { this.caught = true; this.state = 'crashed'; this.endT = 0; engineStop(); sfx.sirenStop?.(); sfx.lose(); }
       }
       const blink = Math.floor(this.time * 6) % 2 === 0; p.red.visible = p.gr.visible = blink; p.blue.visible = p.gb.visible = !blink;
-      p.car.visible = gap > -320 && gap < 60; p.car.position.set(p.x, 0, -p.d);
+      p.car.visible = gap > -320 && gap < 90; p.car.position.set(p.x, 0, -p.d);
     }
-    if (this.police.length) { const g = Math.min(...this.police.map(p => this.dist - p.d)); this.policeGap = g; sfx.sirenSet?.(Math.max(0, 1 - g / 90)); }
+    if (this.police.length) { const chasers = this.police.filter(p => !p.pass), g = chasers.length ? Math.min(...chasers.map(p => this.dist - p.d)) : 99; this.policeGap = g; this.policeAhead = this.police.some(p => p.pass && this.dist - p.d < 0); const near = Math.min(...this.police.map(p => Math.abs(this.dist - p.d))); sfx.sirenSet?.(Math.max(0, 1 - near / 90)); }
   }
 
   updateCamera(dt) {

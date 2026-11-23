@@ -10,7 +10,7 @@ const PUBLIC = path.join(__dirname, 'public');
 const THREE_DIR = path.join(__dirname, 'node_modules', 'three');
 
 const MIME = {
-  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8',
+  '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.jpg': 'image/jpeg', '.glb': 'model/gltf-binary',
   '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png',
   '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon',
 };
@@ -28,6 +28,7 @@ const server = http.createServer((req, res) => {
   if (url === '/') url = '/index.html';
   let base = PUBLIC, rel = url;
   if (url.startsWith('/vendor/three/')) { base = THREE_DIR; rel = url.slice('/vendor/three'.length); }
+  else if (url.startsWith('/vendor/qr/')) { base = path.join(__dirname, 'node_modules', 'qrcode-generator'); rel = url.slice('/vendor/qr'.length); }
   else if (url.startsWith('/vendor/bvh/')) { base = path.join(__dirname, 'node_modules', 'three-mesh-bvh'); rel = url.slice('/vendor/bvh'.length); }
   const file = path.normalize(path.join(base, rel));
   if (!file.startsWith(base)) { res.writeHead(403); res.end(); return; }

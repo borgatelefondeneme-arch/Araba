@@ -11,6 +11,7 @@ import { initAudio, setSound, sfx, playMusic, setMusic } from './audio.js';
 import { preloadModels, raceModel } from './cars.js';
 import { trafficSet } from './track.js';
 import { preloadWorld } from './world.js';
+import qrcode from 'qrcode-generator';
 
 const $ = (id) => document.getElementById(id);
 const engine = new Engine($('gl'), save.quality);
@@ -282,6 +283,20 @@ $('mp-share').onclick = async () => {
   const url = inviteUrl(mpRoom.code), text = inviteText(mpRoom.code);
   if (navigator.share) { try { await navigator.share({ title: 'Turbo Köy', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(text + '\n' + url); toast('Davet bağlantısı kopyalandı – mesaja yapıştır'); } catch { toast(url); }
+};
+$('mp-bt').onclick = async () => {
+  if (!mpRoom) return; sfx.click();
+  const url = inviteUrl(mpRoom.code), text = inviteText(mpRoom.code);
+  if (navigator.share) { try { await navigator.share({ title: 'Turbo Köy', text, url }); } catch (e) {} toast('Menüden Bluetooth / Quick Share / AirDrop seç'); }
+  else toast('Bu tarayıcı paylaşmayı desteklemiyor – QR kodu kullan');
+};
+$('mp-qr').onclick = () => {
+  if (!mpRoom) return; sfx.click();
+  const box = $('mp-qr-box'); box.classList.toggle('hidden'); if (box.classList.contains('hidden')) return;
+  const qr = qrcode(0, 'M'); qr.addData(inviteUrl(mpRoom.code)); qr.make();
+  const n = qr.getModuleCount(), cv = $('mp-qr-canvas'), x = cv.getContext('2d'), sz = cv.width / n;
+  x.fillStyle = '#fff'; x.fillRect(0, 0, cv.width, cv.height); x.fillStyle = '#000';
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) x.fillRect(Math.floor(c * sz), Math.floor(r * sz), Math.ceil(sz), Math.ceil(sz));
 };
 $('mp-wa').onclick = () => { if (!mpRoom) return; sfx.click(); open('https://wa.me/?text=' + encodeURIComponent(inviteText(mpRoom.code) + '\n' + inviteUrl(mpRoom.code)), '_blank'); };
 // sayfa davet bağlantısıyla açıldıysa (…?oda=ABCD) doğrudan odaya git
