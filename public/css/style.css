@@ -3,7 +3,8 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--txt); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
 body.menu-bg { background: #0e1420 url(../img/village-bg.jpg) center 35% / cover no-repeat; }
-#gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+html { height: 100%; background: #0e1420; }
 .hidden { display: none !important; }
 #touch { position: fixed; inset: 0; z-index: 5; }
 

@@ -260,7 +260,7 @@ export class TrackView {
       } else {
         o.position.z = -e.z;
         if (e.magnet) { o.position.x += (e.magnet.x - o.position.x) * Math.min(1, dt * 12); o.position.y += (e.magnet.y + 1 - o.position.y) * Math.min(1, dt * 12); }
-        if (e.kind === 'star') o.rotation.y = time * 3 + e.z;
+        if (e.kind === 'star') o.rotation.y = Math.sin(time * 2.5 + e.z * 0.3) * 0.7; // hep kameraya dönük salınır (yandan çubuk gibi görünmesin)
         else if (e.kind === 'diamond') { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3 + e.z) * 0.15; }
         else if (['magnet', 'nitro', 'shield'].includes(e.kind)) { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3) * 0.15; }
         if (e.kind === 'traffic') { spinWheels(o, e.z); }

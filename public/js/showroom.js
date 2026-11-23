@@ -85,7 +85,7 @@ export class Showroom {
     if (this.neonRainbow) this.neonLight.color.setHSL((this.t * 0.15) % 1, 1, 0.55);
     if (this.pop) { this.pop.t += dt; const p = this.pop.t, s = p < 0.5 ? 1 + Math.sin(p / 0.5 * Math.PI) * 0.35 : 1; this.pop.obj.scale.setScalar(s); if (p > 0.5) { this.pop.obj.scale.setScalar(1); this.pop = null; } }
     // kamerayı arabayı "bölge" içinde büyük gösterecek şekilde yerleştir
-    const cam = this.camera, W = innerWidth, H = innerHeight, z = this.zone;
+    const cv = this.engine.renderer.domElement, cam = this.camera, W = cv.clientWidth || innerWidth, H = cv.clientHeight || innerHeight, z = this.zone;
     cam.aspect = W / H; cam.fov = 35; cam.updateProjectionMatrix();
     const tv = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2)), th = tv * cam.aspect;
     const R = this.R || 2.3, Hc = this.Hc || 1.5;

@@ -33,7 +33,7 @@ export class Engine {
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setTimeout(() => location.reload(), 600); });
   }
   resize() {
-    const w = innerWidth, h = innerHeight;
+    const c = this.renderer.domElement, w = c.clientWidth || innerWidth, h = c.clientHeight || innerHeight; // tuvalin gerçek boyutu (iOS ana ekran uygulamasında tam ekran)
     this.renderer.setPixelRatio(this.pr); this.renderer.setSize(w, h, false);
     this.composer.setPixelRatio(this.pr); this.composer.setSize(w, h);
     this.bloom.setSize(w * this.pr / 2, h * this.pr / 2);
@@ -52,9 +52,13 @@ export class Engine {
     if (now - this.fpsT0 > 2500) {
       const fps = this.fpsN * 1000 / (now - this.fpsT0); this.fpsT0 = now; this.fpsN = 0;
       this.lastFps = fps;
-      if (fps < 45 && this.pr > 0.75) { this.pr = Math.max(0.75, this.pr - 0.25); this.resize(); }
+      const cap = Math.min(devicePixelRatio || 1, this.quality.pr);
+      if (fps < 45 && this.pr > 0.75) { if (this.raised) this.prLocked = true; this.pr = Math.max(0.75, this.pr - 0.25); this.resize(); this.goodN = 0; }
+      // akıcıysa netliği geri yükselt (iki ölçüm üst üste iyi olmalı; iniş-çıkış olursa kilitlenir)
+      else if (fps >= 56 && !this.prLocked && this.pr < cap) { this.goodN = (this.goodN || 0) + 1; if (this.goodN >= 2) { this.pr = Math.min(cap, this.pr + 0.25); this.raised = true; this.goodN = 0; this.resize(); } }
+      else this.goodN = 0;
       else if (fps < 38 && this.onSlow) { this.slowN = (this.slowN || 0) + 1; this.onSlow(this.slowN); }
     }
   }
-  resetFps() { this.fpsT0 = 0; this.slowN = 0; }
+  resetFps() { this.fpsT0 = 0; this.slowN = 0; this.goodN = 0; this.prLocked = false; this.raised = false; }
 }
