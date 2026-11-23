@@ -1,11 +1,9 @@
 // Bölüm içeriği: engeller, rampalar, yıldızlar, elmaslar, güçlendiriciler
 import * as THREE from 'three';
-import { buildCar } from './cars.js';
+import { buildCar, spinWheels, TRAFFIC_MODELS, LOW_TRAFFIC } from './cars.js';
 import { rng, makeCheckerTexture, ROAD } from './textures.js';
 
 const LANES = ROAD.lanes;
-const TRAFFIC_TYPES = ['hatch', 'suv', 'van', 'sport', 'pickup', 'hatch'];
-const TRAFFIC_COLORS = ['#e8e8e8', '#202225', '#8d99a6', '#b71c1c', '#1e4e8c', '#2e6b3a', '#c9a227', '#6d4c41'];
 
 // Engel tipleri: hw yarı genişlik, hl yarı uzunluk, h yükseklik
 const OBST = {
@@ -125,7 +123,14 @@ function makeFinish() {
 }
 
 // ---------- Bölüm üretimi (deterministik, çok oyunculuda herkes aynı yolu görür) ----------
+// Bölüm başına 4 trafik modeli (bellek için); 'compact-car' her zaman var (rampa sonrası park aracı)
+export function trafficSet(level) {
+  const r = rng(level.n * 31 + 7), pool = TRAFFIC_MODELS.filter(m => m !== 'compact-car'), out = ['compact-car'];
+  while (out.length < 4) { const m = pool.splice(Math.floor(r() * pool.length), 1)[0]; out.push(m); }
+  return out;
+}
 export function generateLevel(level, seed) {
+  const TRAFFIC_TYPES = trafficSet(level), RAMP_TYPES = TRAFFIC_TYPES.filter(m => LOW_TRAFFIC.includes(m));
   const r = rng(seed), ents = [], L = level.length, d = (level.n - 1) / 19;
   let z = 90, prevFree = [0, 1, 2], trafficLanes = new Set(), lastRamp = -999, totalStars = 0;
   const themeObst = THEME_OBST[level.theme] || THEME_OBST.village;
@@ -141,7 +146,7 @@ export function generateLevel(level, seed) {
       const cand = [0, 1, 2].filter(reachable); const lane = pick(cand);
       ents.push({ kind: 'ramp', lane, z, len: 7, h: 1.3 });
       const carZ = z + 7 + 13;
-      ents.push({ kind: 'traffic', lane, z: carZ, speed: 0, ttype: pick(['hatch', 'sport', 'hatch']), color: pick(TRAFFIC_COLORS) });
+      ents.push({ kind: 'traffic', lane, z: carZ, speed: 0, ttype: pick(RAMP_TYPES), color: 'orig' });
       const v = level.speed + 2;
       for (let i = 1; i <= 6; i++) { const t = i * 0.1; ents.push({ kind: i === 3 || i === 4 ? 'diamond' : 'star', lane, z: z + 7 + v * t, y: 1.3 + 11 * t - 15 * t * t + 0.9 }); if (!(i === 3 || i === 4)) totalStars++; }
       free = [0, 1, 2].filter(l => l !== lane); lastRamp = z;
@@ -157,7 +162,7 @@ export function generateLevel(level, seed) {
       if (!two) others = [pick(others)];
       for (const lane of others) {
         if (trafficLanes.has(lane)) continue;
-        if (r() < level.traffic) { ents.push({ kind: 'traffic', lane, z, speed: 4 + r() * 5, ttype: pick(TRAFFIC_TYPES), color: pick(TRAFFIC_COLORS) }); newTraffic.add(lane); }
+        if (r() < level.traffic) { ents.push({ kind: 'traffic', lane, z, speed: 4 + r() * 5, ttype: pick(TRAFFIC_TYPES), color: 'orig' }); newTraffic.add(lane); }
         else {
           const type = pick(themeObst); ents.push({ kind: 'obst', type, lane, z });
           if (OBST[type].h <= 1.1 && r() < 0.35) { for (let i = -1; i <= 1; i++) { ents.push({ kind: 'star', lane, z: z + i * 2.6, y: 2.1 - Math.abs(i) * 0.4 }); totalStars++; } }
@@ -233,7 +238,7 @@ export class TrackView {
         if (e.kind === 'star') o.rotation.y = time * 3 + e.z;
         else if (e.kind === 'diamond') { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3 + e.z) * 0.15; }
         else if (['magnet', 'nitro', 'shield'].includes(e.kind)) { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3) * 0.15; }
-        if (e.kind === 'traffic') { const a = -(e.z) / 0.36; for (const w of o.userData.wheels) w.rotation.z = a; }
+        if (e.kind === 'traffic') { spinWheels(o, e.z); }
       }
       if (e.z < dist - 25 || (e.fly && e.fly.t !== undefined && (e.fly.t += dt) > 2.5)) { this.despawn(e); this.active.splice(i, 1); }
     }

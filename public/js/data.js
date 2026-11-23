@@ -1,11 +1,16 @@
 // Oyun verileri: arabalar, yükseltmeler, bölgeler ve bölümler
+// type = models/ klasöründeki glTF modeli. 'orig' = modelin kendi boyası
 export const CARS = [
-  { id: 'hatch', name: 'Köy Kaşifi', type: 'hatch', price: { stars: 0 }, base: { speed: 1, handling: 2, nitro: 1, magnet: 1, armor: 1 }, colors: ['#d32f2f', '#1e88e5', '#fdd835', '#43a047', '#f5f5f5'] },
-  { id: 'sport', name: 'Şimşek GT', type: 'sport', price: { stars: 600 }, base: { speed: 3, handling: 3, nitro: 2, magnet: 1, armor: 1 }, colors: ['#ff6d00', '#c62828', '#212121', '#00b0ff', '#ffd600'] },
-  { id: 'suv', name: 'Dağ Kurdu', type: 'suv', price: { stars: 1400 }, base: { speed: 2, handling: 1, nitro: 2, magnet: 2, armor: 3 }, colors: ['#37474f', '#2e7d32', '#6d4c41', '#eceff1', '#1565c0'] },
-  { id: 'pickup', name: 'Tarla Pikabı', type: 'pickup', price: { stars: 2200 }, base: { speed: 2, handling: 2, nitro: 1, magnet: 3, armor: 3 }, colors: ['#b71c1c', '#455a64', '#f9a825', '#1b5e20', '#fafafa'] },
-  { id: 'muscle', name: 'Kas Kral', type: 'muscle', price: { diamonds: 40 }, base: { speed: 4, handling: 2, nitro: 3, magnet: 1, armor: 2 }, colors: ['#1a237e', '#000000', '#b71c1c', '#ff8f00', '#4a148c'] },
-  { id: 'race', name: 'Roket F', type: 'race', price: { diamonds: 90 }, base: { speed: 5, handling: 5, nitro: 4, magnet: 2, armor: 1 }, colors: ['#e53935', '#00e5ff', '#76ff03', '#ffffff', '#ff4081'] },
+  { id: 'hatch', name: 'Köy Kaşifi', type: 'hatchback', price: { stars: 0 }, base: { speed: 1, handling: 2, nitro: 1, magnet: 1, armor: 1 }, colors: ['#d32f2f', '#1e88e5', '#fdd835', '#f5f5f5', 'orig'] },
+  { id: 'sport', name: 'Şimşek GT', type: '1990s-sports-car', price: { stars: 600 }, base: { speed: 3, handling: 3, nitro: 2, magnet: 1, armor: 1 }, colors: ['#ff6d00', '#c62828', '#212121', '#ffd600', 'orig'] },
+  { id: 'offroad', name: 'Dağ Kurdu', type: '1990s-off-roader', price: { stars: 1400 }, base: { speed: 2, handling: 1, nitro: 2, magnet: 2, armor: 3 }, colors: ['#2e7d32', '#37474f', '#c62828', '#eceff1', 'orig'] },
+  { id: 'pickup', name: 'Tarla Pikabı', type: '1990s-pickup-truck', price: { stars: 2200 }, base: { speed: 2, handling: 2, nitro: 1, magnet: 3, armor: 3 }, colors: ['#b71c1c', '#455a64', '#f9a825', '#1b5e20', 'orig'] },
+  { id: 'police', name: 'Polis Arabası', type: 'police-car', price: { stars: 3200 }, base: { speed: 3, handling: 3, nitro: 3, magnet: 2, armor: 2 }, colors: ['orig'] },
+  { id: 'muscle', name: 'Kas Kral', type: 'muscle-car', price: { diamonds: 40 }, base: { speed: 4, handling: 2, nitro: 3, magnet: 1, armor: 2 }, colors: ['#1a237e', '#212121', '#b71c1c', '#4a148c', 'orig'] },
+  { id: 'rally', name: 'Ralli Roket', type: 'rally-car', price: { diamonds: 60 }, base: { speed: 4, handling: 5, nitro: 3, magnet: 2, armor: 1 }, colors: ['#e53935', '#76ff03', '#ffffff', '#ff4081', 'orig'] },
+  { id: 'monster', name: 'Canavar Kamyon', type: 'monster-truck', price: { diamonds: 80 }, base: { speed: 3, handling: 2, nitro: 3, magnet: 3, armor: 5 }, colors: ['#43a047', '#e53935', '#ff9800', '#212121', 'orig'] },
+  { id: 'fire', name: 'İtfaiye', type: 'fire-truck', price: { diamonds: 100 }, base: { speed: 3, handling: 2, nitro: 4, magnet: 4, armor: 5 }, colors: ['orig'] },
+  { id: 'concept', name: 'Konsept X (Ultra)', type: 'concept', price: { diamonds: 150 }, base: { speed: 5, handling: 5, nitro: 5, magnet: 3, armor: 3 }, colors: ['#a80000', '#e8e8ec', '#2b2d33', '#0d47a1', '#ff6d00'] },
 ];
 
 export const UPGRADES = [

@@ -22,6 +22,10 @@ export class Race {
     this.camera = new THREE.PerspectiveCamera(62, engine.aspect, 0.3, 6000);
     // oyuncu arabası
     this.car = buildCar(carDef.type, color); this.scene.add(this.car);
+    if (this.world.T.night) { // gece farları
+      const hl = new THREE.SpotLight(0xfff1d6, 60, 70, 0.45, 0.6, 1.2); hl.position.set(0, 0.9, -this.car.userData.halfL); hl.target.position.set(0, 0, -this.car.userData.halfL - 25);
+      this.car.add(hl); this.car.add(hl.target);
+    }
     this.halfW = this.car.userData.halfW; this.halfL = this.car.userData.halfL;
     const shadowTex = makeBlobShadow();
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(this.halfW * 2.6, this.halfL * 2.4), new THREE.MeshBasicMaterial({ map: shadowTex, transparent: true, depthWrite: false, opacity: 0.85 }));
@@ -59,9 +63,9 @@ export class Race {
   newWind(init) { return { x: (Math.random() - 0.5) * 16, y: 0.5 + Math.random() * 5, z: -(init ? Math.random() * 60 : 60), l: 1 + Math.random() * 3 }; }
 
   addRemote(p) {
-    const car = buildCar(['hatch', 'sport', 'suv', 'pickup', 'muscle', 'race'].includes(p.car) ? p.car : 'hatch', p.color || '#ffffff', { lite: true });
+    const car = buildCar(p.model || 'hatchback', p.color || 'orig', { lite: true });
     const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(p.name, '#ffffff'), depthTest: false, transparent: true }));
-    label.scale.set(2.8, 0.7, 1); label.position.y = 2.9; car.userData.label = label; label.renderOrder = 10; car.add(label);
+    label.scale.set(2.8, 0.7, 1); label.position.y = car.userData.height + 1.2; car.userData.label = label; label.renderOrder = 10; car.add(label);
     car.visible = false; this.scene.add(car);
     this.remotes.set(p.id, { id: p.id, name: p.name, color: p.color, car, d: 0, x: 0, y: 0, s: 0, rd: 0, rx: 0, has: false, finished: false });
     this.hudMarkers();
@@ -115,7 +119,7 @@ export class Race {
   steer(dir) {
     if (this.state !== 'run') return;
     const nl = Math.max(0, Math.min(2, this.lane + dir));
-    if (nl !== this.lane) { this.prevLane = this.lane; this.lane = nl; }
+    if (nl !== this.lane) { this.prevLane = this.lane; this.lane = nl; if (this.speed > 20 && Math.random() < 0.6) sfx.tires(); }
   }
   jump() { if (this.state !== 'run' || this.y > 0.05 || this.onRamp) return; this.vy = 9.5; sfx.jump(); }
   useNitro() {
@@ -191,9 +195,9 @@ export class Race {
     if (this.state === 'finish' || this.state === 'crashed') { this.endT += dt; if (this.endT > 2.2 && !this.ended) { this.ended = true; this.o.onEnd?.(this.result()); } }
     // araba görseli
     const c = this.car; c.position.set(this.x, this.y, -this.dist);
-    c.rotation.y = -vx * 0.035;
-    const body = c.userData.body; body.rotation.x = THREE.MathUtils.lerp(body.rotation.x, -vx * 0.012, 0.2);
-    body.rotation.z = this.onRamp ? 0.18 : (this.y > 0.05 ? THREE.MathUtils.clamp(this.vy * 0.015, -0.12, 0.12) : Math.sin(this.time * 30) * 0.002 * this.speed / 30);
+    this.roll = THREE.MathUtils.lerp(this.roll || 0, vx * 0.012, 0.2);
+    const pitch = this.onRamp ? 0.18 : (this.y > 0.05 ? THREE.MathUtils.clamp(this.vy * 0.015, -0.12, 0.12) : Math.sin(this.time * 30) * 0.002 * this.speed / 30);
+    c.rotation.set(pitch, -vx * 0.035, this.roll);
     spinWheels(c, this.dist);
     c.visible = !(this.invT > 0 && Math.floor(this.time * 12) % 2 === 0);
     for (const f of this.flames) { f.visible = this.nitroT > 0; f.scale.set(1, 0.8 + Math.random() * 0.5, 1); }

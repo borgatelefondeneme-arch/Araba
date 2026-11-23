@@ -121,7 +121,7 @@ wss.on('connection', (ws) => {
       case 'start':
         if (r && r.hostId === c.id && r.state === 'lobby') {
           r.state = 'race'; r.results = []; r.seed = Math.floor(Math.random() * 1e9);
-          broadcast(r, { t: 'start', level: r.level, seed: r.seed, countdown: 3500, players: [...r.players.values()].map(pub) });
+          broadcast(r, { t: 'start', level: r.level, seed: r.seed, countdown: 6000, players: [...r.players.values()].map(pub) });
           r.timer = setTimeout(() => endRace(r), 6 * 60 * 1000);
           sendRoomListAll();
         }

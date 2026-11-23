@@ -148,3 +148,26 @@ export function makeCheckerTexture() {
   const t = tex(c); t.magFilter = THREE.NearestFilter; return t;
 }
 export { rng };
+
+// Yol levhaları (gerçek levha oranları; piktogramlar renkli emoji ile çocuk dostu)
+export function makeSignTexture(kind, text) {
+  const W = 256, H = kind === 'name' || kind === 'dir' ? 128 : 256;
+  const c = canvas(W, H), x = c.getContext('2d');
+  x.lineJoin = 'round';
+  if (kind === 'warn') { // kırmızı kenarlı üçgen uyarı levhası
+    x.beginPath(); x.moveTo(128, 10); x.lineTo(246, 226); x.lineTo(10, 226); x.closePath();
+    x.fillStyle = '#d50000'; x.fill(); x.beginPath(); x.moveTo(128, 46); x.lineTo(216, 206); x.lineTo(40, 206); x.closePath(); x.fillStyle = '#fafafa'; x.fill();
+    x.font = '84px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 152);
+  } else if (kind === 'limit') { // hız sınırı
+    x.beginPath(); x.arc(128, 128, 120, 0, 7); x.fillStyle = '#d50000'; x.fill(); x.beginPath(); x.arc(128, 128, 92, 0, 7); x.fillStyle = '#fafafa'; x.fill();
+    x.fillStyle = '#111'; x.font = 'bold 104px "Arial Narrow",Arial,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 134);
+  } else if (kind === 'name') { // yerleşim yeri levhası
+    x.fillStyle = '#0d47a1'; x.beginPath(); x.roundRect(4, 4, 248, 120, 12); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 6; x.beginPath(); x.roundRect(12, 12, 232, 104, 8); x.stroke();
+    x.fillStyle = '#fff'; x.font = 'bold 40px Arial,sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 66, 220);
+  } else if (kind === 'dir') { // yön levhası (yeşil)
+    x.fillStyle = '#1b5e20'; x.beginPath(); x.roundRect(4, 4, 248, 120, 12); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 5; x.beginPath(); x.roundRect(12, 12, 232, 104, 8); x.stroke();
+    x.fillStyle = '#fff'; x.font = 'bold 30px Arial,sans-serif'; x.textAlign = 'left'; x.textBaseline = 'middle'; const [a, b] = text.split('|'); x.fillText(a, 28, 46, 160); x.fillText(b, 28, 86, 160);
+    x.font = 'bold 44px Arial'; x.fillText('➜', 196, 66);
+  }
+  const t = tex(c, true, false); return t;
+}

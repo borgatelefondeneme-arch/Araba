@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { makeRoadTextures, makeGroundTextures, makeFacadeTexture, makeWindowTexture, ROAD, rng } from './textures.js';
+import { makeRoadTextures, makeGroundTextures, makeFacadeTexture, makeWindowTexture, makeSignTexture, ROAD, rng } from './textures.js';
 
 export const THEMES = {
   village: { elev: 32, azim: 150, turb: 3, rayl: 1.4, fog: 0xbcd3e4, fogD: 0.0042, sun: 0xfff0d8, sunI: 3.0, hemiS: 0xcfe4ff, hemiG: 0x5a6b3a, hemiI: 0.9, exposure: 0.62, bloom: 0, clouds: 0.45 },
@@ -74,6 +74,14 @@ class Instanced {
     this.mesh.count = 0; this.mesh.frustumCulled = false; this.cap = cap; scene.add(this.mesh);
   }
 }
+
+const SIGNS = {
+  village: [['warn', '🐄'], ['warn', '🚸'], ['warn', '🚜'], ['warn', '🐑'], ['limit', '50'], ['dir', 'Köy Meydanı|2 km'], ['name', 'YEŞİL KÖY']],
+  forest: [['warn', '🦌'], ['warn', '🐻'], ['warn', '🌲'], ['limit', '70'], ['dir', 'Şelale|5 km'], ['name', 'ÇAM ORMANI']],
+  desert: [['warn', '🐪'], ['warn', '☀️'], ['warn', '🦂'], ['limit', '90'], ['dir', 'Vaha|12 km'], ['name', 'KIZGIN ÇÖL']],
+  snow: [['warn', '❄️'], ['warn', '⛷️'], ['warn', '🦌'], ['limit', '40'], ['dir', 'Kayak Merkezi|3 km'], ['name', 'KARLI DAĞ']],
+  city: [['warn', '🚦'], ['warn', '🚸'], ['warn', '🚲'], ['limit', '60'], ['dir', 'Şehir Merkezi|1 km'], ['name', 'GECE ŞEHRİ']],
+};
 
 export class World {
   constructor(engine, theme, seed = 1) {
@@ -162,6 +170,15 @@ export class World {
     K('fence', G.box, M({ color: 0x8a6a48, roughness: 0.9 }), 1200);
     K('hay', G.hay, M({ color: 0xd9b45a, roughness: 1 }), 200);
     K('snowman', G.snowman, M({ color: 0xffffff, roughness: 0.6 }), 100);
+    // yol levhaları
+    this.signDefs = SIGNS[th] || SIGNS.village;
+    this.signDefs.forEach(([kind, text], i) => {
+      const t = makeSignTexture(kind, text);
+      const w = kind === 'name' || kind === 'dir' ? 2.4 : 1.25, h = kind === 'name' || kind === 'dir' ? 1.2 : 1.25;
+      const g = new THREE.PlaneGeometry(w, h); g.translate(0, h / 2, 0);
+      const mat = new THREE.MeshStandardMaterial({ map: t, alphaTest: 0.5, roughness: 0.35, metalness: 0.1, side: THREE.DoubleSide, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: th === 'city' ? 0.35 : 0.08 });
+      K('sign' + i, g, mat, 40, true);
+    });
     if (th === 'city') {
       this.bVariants = [];
       for (let i = 0; i < 6; i++) {
@@ -239,6 +256,16 @@ export class World {
           z -= b.w + 2 + r() * 4;
         }
       }
+    }
+    // yol levhaları: her 2-3 parçada bir, sağ kenarda
+    if (k % 3 === 1 || k % 25 === 3) {
+      const nameIdx = this.signDefs.findIndex(d => d[0] === 'name');
+      const i = k % 25 === 3 ? nameIdx : Math.floor(r() * this.signDefs.length);
+      const side = k % 25 === 3 ? 1 : (r() < 0.75 ? 1 : -1), x = side * 7.9, z = z0 - 20;
+      const big = this.signDefs[i][0] === 'name' || this.signDefs[i][0] === 'dir';
+      P('pole', x, 0, z, 0.9, big ? 2.2 : 2.3, 0.9);
+      if (big) P('pole', x + 0.9, 0, z, 0.9, 2.2, 0.9);
+      P('sign' + i, x + (big ? 0.45 : 0), big ? 2.0 : 2.1, z + 0.05, 1, 1, 1, side > 0 ? -0.25 : 0.25);
     }
     // sokak lambaları
     if (th === 'city' || th === 'village' || th === 'snow') {

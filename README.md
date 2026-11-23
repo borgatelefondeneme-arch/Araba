@@ -34,7 +34,9 @@ Oyunu bir bilgisayar (Windows / Mac / Linux) "sunucu" olarak yayınlar; telefon 
 
 ## Oyunda neler var?
 - **20 bölüm, 5 bölge:** Yeşil Köy → Çam Ormanı → Kızgın Çöl → Karlı Dağ → Gece Şehri. Her bölüm 1–3 yıldızla puanlanır, bir sonrakini açar.
-- **6 araba:** Köy Kaşifi, Şimşek GT, Dağ Kurdu (SUV), Tarla Pikabı, Kas Kral, Roket F. Her birinin 5 renk seçeneği var.
+- **10 araç (yüksek poligonlu 3D modeller):** Köy Kaşifi, Şimşek GT, Dağ Kurdu, Tarla Pikabı, Polis Arabası, Kas Kral, Ralli Roket, Canavar Kamyon, İtfaiye ve ultra gerçekçi Konsept X. Çoğunun 5 renk seçeneği var. Yolda taksi, dondurma kamyonu, kargo minibüsü gibi trafik araçları dolaşır.
+- **Gerçekçi sesler:** Motor (rölanti → yüksek devir, hıza göre perde değişir), rüzgâr, nitro patlaması, lastik sesi, çarpışma, korna 📯, yıldız/elmas toplama.
+- **Yol levhaları:** İnek geçidi, okul, traktör, geyik, deve, kar uyarıları; hız sınırı, yön ve köy/bölge tabelaları.
 - **5 yükseltme:** Motor, Yol Tutuş, Nitro, Mıknatıs, Zırh (ekstra can). Yıldızla, son seviyeler elmasla alınır.
 - **Güçlendiriciler:** 🧲 mıknatıs, 🔥 nitro (engelleri devirir), 🛡️ kalkan. **Rampalar** havaya uçurup elmas toplatır.
 - **Grafik:** Fiziksel tabanlı (PBR) malzemeler, cilalı araba boyası, fiziksel gökyüzü ve bulutlar, gerçek zamanlı gölgeler,
@@ -46,3 +48,9 @@ Oyunu bir bilgisayar (Windows / Mac / Linux) "sunucu" olarak yayınlar; telefon 
 - `public/js/` – Three.js ile oyun: `race.js` (oynanış), `world.js` (ortam), `track.js` (bölüm üretimi),
   `cars.js` (prosedürel araba modelleri), `map.js` (köy haritası), `main.js` (menüler)
 - İlerleme her cihazın tarayıcısında (localStorage) saklanır.
+
+## Kaynaklar ve lisanslar
+- Araç modelleri (Konsept X hariç): [Grab3D](https://grab3d.com) – CC0 (kamu malı).
+- Konsept X: [Khronos glTF Sample Assets – CarConcept](https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/CarConcept), © 2024 Darmstadt Graphics Group GmbH, model ve dokular Eric Chadwick, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+- Ses efektleri: ElevenLabs Sound Effects ile bu oyun için üretildi (`public/sfx`).
+- Uygulama simgesi ve köy yolu arka planı: yapay zekâ ile üretildi (`public/img`).

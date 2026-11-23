@@ -16,7 +16,8 @@ export class Engine {
     const mobile = matchMedia('(pointer: coarse)').matches;
     this.level = level === 'auto' ? (mobile ? 'medium' : 'high') : level;
     this.quality = QUALITY[this.level];
-    const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.aa, powerPreference: 'high-performance' });
+    const r = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.aa, powerPreference: 'high-performance', alpha: true });
+    r.setClearColor(0x000000, 0);
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = 0.7;
     r.shadowMap.enabled = this.quality.shadows > 0; r.shadowMap.type = THREE.PCFShadowMap;

@@ -7,7 +7,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon.svg">
+<meta name="apple-mobile-web-app-title" content="Turbo Köy">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="Turbo Köy">
+<link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
 <title>Turbo Köy</title>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
@@ -122,6 +127,7 @@
   <div id="hud-power" class="power"></div>
   <div class="speedo"><span id="hud-speed">0</span><small>km/sa</small></div>
   <button id="nitro-btn" class="nitro"><span>🔥<br>NİTRO</span></button>
+  <button id="horn-btn" class="btn horn">📯</button>
 </div>
 <div id="countdown"></div>
 <div id="pop"></div>
@@ -147,6 +153,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="car-loading" class="car-loading spinner hidden"></div>
 <div id="loading" class="loading"><div class="spinner"></div><p>Yükleniyor…</p></div>
 
 <script type="module" src="js/main.js"></script>

@@ -7,10 +7,13 @@ import { Net } from './net.js';
 import { CARS, UPGRADES, MAX_UPG, upgradeCost, carStats, LEVELS } from './data.js';
 import { save, persist, resetSave } from './save.js';
 import { initAudio, setSound, sfx } from './audio.js';
+import { preloadModels } from './cars.js';
+import { trafficSet } from './track.js';
 
 const $ = (id) => document.getElementById(id);
 const engine = new Engine($('gl'), save.quality);
 const showroom = new Showroom(engine);
+showroom.onLoading = (on) => $('car-loading').classList.toggle('hidden', !on);
 const net = new Net();
 let screen = 'home', race = null, paused = false, currentLevel = null, raceMode = null, mpRoom = null, mpResults = [], garageIdx = 0;
 setSound(save.sound);
@@ -19,7 +22,7 @@ setSound(save.sound);
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
 function wallet() { $('w-stars').textContent = save.stars; $('w-dias').textContent = save.diamonds; }
 const carById = (id) => CARS.find(c => c.id === id) || CARS[0];
-const carColor = (c) => save.colors[c.id] || c.colors[0];
+const carColor = (c) => c.colors.includes(save.colors[c.id]) ? save.colors[c.id] : c.colors[0];
 const stars = (n) => [1, 2, 3].map(i => `<i class="${i <= n ? 'on' : ''}">★</i>`).join('');
 const costHtml = (p) => [p.stars ? `★ ${p.stars}` : '', p.diamonds ? `◆ ${p.diamonds}` : ''].filter(Boolean).join(' + ');
 const canPay = (p) => save.stars >= (p.stars || 0) && save.diamonds >= (p.diamonds || 0);
@@ -29,7 +32,8 @@ function show(name) {
   screen = name;
   for (const s of ['home', 'map', 'garage', 'mp', 'settings']) $(s).classList.toggle('hidden', s !== name);
   $('wallet').classList.toggle('hidden', name === 'race');
-  if (name === 'home' || name === 'mp' || name === 'settings') { showroom.offsetX = 0; showroom.offsetY = 0; const c = carById(save.car); showroom.setCar(c.type, carColor(c)); }
+  document.body.classList.toggle('menu-bg', name !== 'race' && name !== 'map');
+  if (name === 'home' || name === 'mp' || name === 'settings') { const land = engine.aspect > 1; showroom.offsetX = name === 'home' && land ? Math.round(innerWidth * 0.2) : 0; showroom.offsetY = name === 'home' && !land ? Math.round(innerHeight * 0.03) : 0; const c = carById(save.car); showroom.setCar(c.type, carColor(c)); }
   if (name === 'map') renderMap($('map-wrap'), save, openLevelCard);
   if (name === 'garage') { garageIdx = CARS.findIndex(c => c.id === save.car); renderGarage(); }
   if (name === 'mp') enterMp();
@@ -48,7 +52,8 @@ function renderGarage() {
   $('g-lock').textContent = owned ? (save.car === car.id ? 'Kullanılıyor' : 'Senin') : 'Kilitli';
   $('g-colors').innerHTML = '';
   car.colors.forEach(col => {
-    const s = document.createElement('div'); s.className = 'swatch' + (col === color ? ' on' : ''); s.style.background = col;
+    const s = document.createElement('div'); s.className = 'swatch' + (col === color ? ' on' : '');
+    s.style.background = col === 'orig' ? 'conic-gradient(#ff8a80, #ffd180, #b9f6ca, #80d8ff, #ea80fc, #ff8a80)' : col; if (col === 'orig') s.title = 'Orijinal renk';
     s.onclick = () => { save.colors[car.id] = col; persist(); sfx.click(); renderGarage(); };
     $('g-colors').appendChild(s);
   });
@@ -97,22 +102,25 @@ $('lc-go').onclick = () => { $('level-card').classList.add('hidden'); startRace(
 
 // ---------- Yarış ----------
 function tryFullscreen() { if (matchMedia('(pointer: coarse)').matches && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); }
-function startRace(level, o) {
+async function startRace(level, o) {
   initAudio(); tryFullscreen();
   if (race) { race.dispose(); race = null; }
   for (const id of ['result', 'pause', 'level-card']) $(id).classList.add('hidden');
   $('loading').classList.remove('hidden');
   for (const s of ['home', 'map', 'garage', 'mp', 'settings']) $(s).classList.add('hidden');
-  $('wallet').classList.add('hidden'); screen = 'race'; raceMode = o; currentLevel = level; paused = false;
-  setTimeout(() => {
-    const car = carById(save.car);
-    race = new Race(engine, {
-      level, carDef: car, color: carColor(car), stats: carStats(car, save.upgrades[car.id]),
-      seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players: o.players, myId: net.id, countdown: o.mp ? o.countdown / 1000 : 3.2,
-      onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
-    });
-    $('loading').classList.add('hidden');
-  }, 60);
+  $('wallet').classList.add('hidden'); document.body.classList.remove('menu-bg');
+  screen = 'race'; raceMode = o; currentLevel = level; paused = false;
+  const car = carById(save.car);
+  const players = (o.players || []).map(p => ({ ...p, model: carById(p.car).type }));
+  try { await preloadModels([car.type, ...trafficSet(level), ...players.map(p => p.model)]); }
+  catch (e) { console.warn(e); toast('Araç modelleri yüklenemedi'); }
+  if (screen !== 'race' || raceMode !== o) return;
+  race = new Race(engine, {
+    level, carDef: car, color: carColor(car), stats: carStats(car, save.upgrades[car.id]),
+    seed: o.mp ? o.seed : level.seed, mp: o.mp, net, players, myId: net.id, countdown: o.mp ? Math.max(1.5, o.countdown / 1000 - (performance.now() - o.t0) / 1000) : 3.2,
+    onEnd: (r) => raceEnded(r), onPause: () => togglePause(true),
+  });
+  $('loading').classList.add('hidden');
 }
 function raceEnded(r) {
   if (raceMode.mp) { showMpResults(r); return; }
@@ -144,6 +152,7 @@ function togglePause(on) {
   paused = on; $('pause').classList.toggle('hidden', !on);
 }
 $('hud-pause').onclick = () => togglePause(true);
+$('horn-btn').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); sfx.horn(); });
 $('p-resume').onclick = () => togglePause(false);
 $('p-retry').onclick = () => startRace(currentLevel, { mp: false });
 $('p-map').onclick = () => exitRace('map');
@@ -197,7 +206,7 @@ net.on('close', () => { $('mp-status').classList.remove('on'); if (screen === 'm
 net.on('rooms', (m) => renderRooms(m.list));
 net.on('room', (m) => { mpRoom = m; if (screen === 'mp') renderMpRoom(); });
 net.on('error', (m) => toast(m.msg));
-net.on('start', (m) => { mpResults = []; startRace(LEVELS[m.level - 1], { mp: true, seed: m.seed, players: m.players, countdown: m.countdown }); });
+net.on('start', (m) => { mpResults = []; startRace(LEVELS[m.level - 1], { mp: true, seed: m.seed, players: m.players, countdown: m.countdown, t0: performance.now() }); });
 net.on('state', (m) => race?.remoteState(m));
 net.on('left', (m) => race?.removeRemote(m.id));
 net.on('finish', (m) => { mpResults = m.results; if (race?.ended || race?.state === 'finish') renderMpResults(false); for (const r of m.results) { const rr = race?.remotes.get(r.id); if (rr) rr.finished = true; } });
