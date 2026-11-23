@@ -134,6 +134,7 @@
       <select id="s-steer"><option value="free">Serbest (parmakla sürükle)</option><option value="lane">3 şerit (kaydır)</option></select>
     </label>
     <label class="field check"><input type="checkbox" id="s-sound"> Ses açık</label>
+    <label class="field check"><input type="checkbox" id="s-music"> Müzik açık</label>
     <label class="field check"><input type="checkbox" id="s-fps"> Hız göstergesi (FPS)</label>
     <button class="btn" id="s-full">⛶ Tam ekran</button>
     <button class="btn danger" id="s-reset">İlerlemeyi sıfırla</button>
@@ -159,6 +160,7 @@
   </div>
   <div id="hud-hearts" class="hearts"></div>
   <div id="hud-rank" class="hud-rank"></div>
+  <div id="mirror" class="mirror hidden"><span class="mlabel">DİKİZ AYNASI</span></div>
   <div class="hud-score"><span id="hud-score">0</span> <b id="hud-combo"></b></div>
   <div id="hud-power" class="power"></div>
   <div class="speedo"><span id="hud-speed">0</span><small>km/sa</small></div>
@@ -169,6 +171,8 @@
 <div id="countdown"></div>
 <div id="pop"></div>
 <div id="flash"></div>
+<div id="police-glow" class="police-glow"></div>
+<div id="banner" class="banner"></div>
 
 <!-- Duraklat -->
 <div id="pause" class="modal hidden">
