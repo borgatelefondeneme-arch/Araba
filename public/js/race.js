@@ -9,6 +9,8 @@ import { sfx, engineStart, engineSet, engineStop } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const G = 30;
+let _glow = null;
+function glowTex() { if (_glow) return _glow; const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); _glow = new THREE.CanvasTexture(c); return _glow; }
 const _tp = new THREE.Vector3();
 
 export class Race {
@@ -66,6 +68,16 @@ export class Race {
     if (this.mode === 'police') { this.makePolice(); this.maxHearts = Math.max(3, this.maxHearts); this.hearts = this.maxHearts; }
     const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 48), new THREE.MeshBasicMaterial({ color: 0x80d8ff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.4; ring.visible = false; this.scene.add(ring); this.ring = ring; this.ringT = 0;
+    this.shock = 0.5; this.lastRank = 0; this.finalBanner = false;
+    // dikiz aynası (polis ve yarış modlarında): küçük hedefe 3 karede bir çizilir, her karede ekrana yapıştırılır
+    if (this.mode === 'police' || this.mode === 'race') {
+      this.mirrorRT = new THREE.WebGLRenderTarget(360, 120);
+      this.mirrorCam = new THREE.PerspectiveCamera(48, 3, 0.5, 170);
+      this.mirrorScene = new THREE.Scene(); this.mirrorOrtho = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      const mt = this.mirrorRT.texture; mt.repeat.x = -1; mt.offset.x = 1; mt.wrapS = THREE.RepeatWrapping; // aynada sağ-sol ters
+      this.mirrorScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ map: mt, depthTest: false })));
+      this.mirrorN = 0;
+    }
     if (this.mp) for (const p of opts.players || []) if (p.id !== opts.myId) this.addRemote(p);
 
     // takılma olursa kaliteyi kendiliğinden düşür
@@ -164,6 +176,7 @@ export class Race {
     $('hud-hearts').classList.toggle('hidden', this.mp || this.mode === 'race');
     $('countdown').textContent = ''; this.hudMarkers(); this.hudT = 0;
     $('hud-pause').classList.toggle('hidden', this.mp);
+    $('mirror').classList.toggle('hidden', !this.mirrorRT); $('police-glow').style.opacity = 0; $('police-glow').classList.remove('on');
     $('hud-rank').classList.toggle('hidden', this.mode === 'mp'); $('hud-rank').textContent = '';
   }
   hudMarkers() {
@@ -186,11 +199,21 @@ export class Race {
     if (pw !== this._pw) { this._pw = pw; $('hud-power').innerHTML = pw; }
     // sıra / polis mesafesi, puan, kombo, şok
     if (this.mode === 'race') { const rank = 1 + this.rivals.filter(a => a.d > this.dist).length; this.setT('hud-rank', `${rank}/${this.rivals.length + 1}`); $('hud-rank').classList.toggle('first', rank === 1); }
-    else if (this.mode === 'police') { this.setT('hud-rank', `🚓 ${Math.max(0, Math.round(this.policeGap || 0))} m`); $('hud-rank').classList.toggle('danger', (this.policeGap || 99) < 25); }
+    else if (this.mode === 'police') {
+      const g = this.policeGap ?? 99; this.setT('hud-rank', `🚓 ${Math.max(0, Math.round(g))} m`); $('hud-rank').classList.toggle('danger', g < 25);
+      const pg = $('police-glow'), close = this.state === 'run' && g < 45; pg.classList.toggle('on', close); pg.style.opacity = close ? Math.min(0.85, (45 - g) / 35 + 0.2) : 0;
+    }
+    if (this.mode === 'race' && this.state === 'run') {
+      const rank = 1 + this.rivals.filter(a => a.d > this.dist).length;
+      if (this.lastRank && rank !== this.lastRank) { if (rank < this.lastRank) { this.banner(rank === 1 ? 'LİDERSİN! 🏆' : `${rank}. SIRAYA YÜKSELDİN!`); sfx.power(); } else { const who = this.rivals.find(a => a.d > this.dist && a.d - this.dist < 15); this.popText(`${who ? who.name : 'Rakip'} seni geçti!`); } }
+      this.lastRank = rank;
+    }
+    if (!this.finalBanner && this.state === 'run' && this.level.length - this.dist < 300) { this.finalBanner = true; this.banner('SON 300 METRE! 🏁'); }
     this.setT('hud-score', this.score); this.setT('hud-combo', this.combo > 1 ? `x${this.combo}` : '');
     const sb = $('shock-btn'); sb.style.setProperty('--fill', Math.min(1, this.shock) * 100 + '%'); sb.classList.toggle('ready', this.shock >= 1);
   }
   flash(color) { const f = $('flash'); f.style.background = color; f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+  banner(txt) { const el = $('banner'); el.textContent = txt; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
   popText(txt) { const el = $('pop'); el.textContent = txt; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
 
   // ---------- Güncelleme ----------
@@ -232,6 +255,7 @@ export class Race {
     this.track.update(this.dist, dt, this.time);
     if (running) this.collide();
     this.updateAI(dt, running);
+    if (running && this.shock < 1) { this.shock = Math.min(1, this.shock + dt / 25); if (this.shock >= 1) { this.popText('ŞOK DALGASI HAZIR! 💥'); sfx.power(); } }
     if (this.comboT > 0) { this.comboT -= dt; if (this.comboT <= 0) this.combo = 0; }
     if (this.ringT > 0) { this.ringT -= dt; const k2 = 1 - this.ringT / 0.7; this.ring.scale.setScalar(2 + k2 * 45); this.ring.material.opacity = 0.8 * (1 - k2); this.ring.position.set(this.x, 0.4, -this.dist); if (this.ringT <= 0) this.ring.visible = false; }
     this.track.writeStars();
@@ -294,7 +318,7 @@ export class Race {
         continue;
       }
       if (e.kind === 'boost') { if (!e.used && Math.abs(dz) < 4.5 && Math.abs(e.x - this.x) < 1.7 && this.y < 0.5) { e.used = true; this.boostT = 1.6; sfx.power(); this.popText('HIZ! ⚡'); this.shake = 0.15; } continue; }
-      if (e.kind === 'crates') { if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h) { this.knock(e, Math.sign(e.x - this.x) || 1); sfx.bump(); this.speed *= 0.96; this.shake = 0.2; this.addScore(25, 'KUTU! +25'); this.shock = Math.min(1, this.shock + 0.05); } continue; }
+      if (e.kind === 'crates') { if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h) { this.knock(e, Math.sign(e.x - this.x) || 1); sfx.bump(); this.speed *= 0.96; this.shake = 0.2; this.addScore(25, 'KUTU! +25'); this.shock = Math.min(1, this.shock + 0.08); } continue; }
       if (e.kind === 'obst' || e.kind === 'traffic') {
         if (Math.abs(dz) < e.hl + this.halfL * 0.85 && Math.abs(e.x - this.x) < e.hw + this.halfW * 0.8 && this.y < e.h - 0.05) { this.hit(e, dz); continue; }
         // kıl payı: yanından çok yakın geçince
@@ -305,7 +329,7 @@ export class Race {
   collect(e) {
     e.alive = false; e.collectT = 0.001;
     switch (e.kind) {
-      case 'star': this.starsGot++; this.nitro = Math.min(1, this.nitro + (this.nitroT > 0 ? 0 : 0.03)); sfx.star(); break;
+      case 'star': this.starsGot++; this.score += 10; this.nitro = Math.min(1, this.nitro + (this.nitroT > 0 ? 0 : 0.03)); this.shock = Math.min(1, this.shock + 0.03); sfx.star(); break;
       case 'diamond': this.diamondsGot++; sfx.diamond(); this.popText('+1 💎'); break;
       case 'magnet': this.magnetT = 6 + this.stats.magnet * 1.2; sfx.power(); this.popText('MIKNATIS 🧲'); break;
       case 'nitro': this.nitro = 1; sfx.power(); this.popText('NİTRO HAZIR 🔥'); break;
@@ -345,7 +369,8 @@ export class Race {
     let rating = !success ? 0 : (ratio >= 0.7 && this.crashes === 0) ? 3 : ratio >= 0.4 ? 2 : 1;
     if (success && this.mode === 'race') rating = this.place === 1 ? 3 : this.place === 2 ? 2 : 1;
     if (success && this.mode === 'police') rating = this.hearts >= this.maxHearts ? 3 : this.hearts >= 2 ? 2 : 1;
-    return { success, rating, mode: this.mode, place: this.place, racers: this.rivals.length + 1, score: this.score, nearMisses: this.nearMisses, caught: this.caught, stars: this.starsGot, diamonds: this.diamondsGot, total: this.track.totalStars, crashes: this.crashes, time: this.finishTime || this.time, dist: this.dist };
+    const standings = this.mode === 'race' ? (() => { const list = [...this.rivals].sort((p, q) => q.d - p.d).map(a => ({ name: a.name })); const pl = success ? (this.place || list.length + 1) : list.length + 1; list.splice(pl - 1, 0, { name: 'Sen', me: true }); return list.map((x, i) => ({ place: i + 1, name: x.name, me: !!x.me })); })() : null;
+    return { success, rating, mode: this.mode, place: this.place, standings, racers: this.rivals.length + 1, score: this.score, nearMisses: this.nearMisses, caught: this.caught, stars: this.starsGot, diamonds: this.diamondsGot, total: this.track.totalStars, crashes: this.crashes, time: this.finishTime || this.time, dist: this.dist };
   }
 
   // ---------- skor, kıl payı, takla, şok dalgası ----------
@@ -353,7 +378,7 @@ export class Race {
   nearMiss() {
     this.combo = this.comboT > 0 ? this.combo + 1 : 1; this.comboT = 3; this.nearMisses++;
     const pts = 50 * this.combo; this.addScore(pts, this.combo > 1 ? `KIL PAYI! x${this.combo} +${pts}` : `KIL PAYI! +${pts}`);
-    this.nitro = Math.min(1, this.nitro + 0.12); this.shock = Math.min(1, this.shock + 0.15); sfx.nearMiss?.();
+    this.nitro = Math.min(1, this.nitro + 0.12); this.shock = Math.min(1, this.shock + 0.25); sfx.nearMiss?.();
   }
   doTrick(dir) { if (this.trick || this.y < 0.6 || this.state !== 'run') return; this.trick = { dir, t: 0, done: false }; sfx.jump(); }
   useShock() {
@@ -374,8 +399,10 @@ export class Race {
     const names = ['Ali', 'Zeynep', 'Mert', 'Elif', 'Can', 'Defne', 'Emir', 'Ece'];
     list.slice(0, 4).forEach((r, i) => {
       const car = buildCar(r.model, r.color, { lite: true }); this.scene.add(car);
-      const lane = [0, 2, 1, 0][i], d = [6, 6, 14, 22][i];
-      this.rivals.push({ car, name: r.name || names[i], d, x: ROAD.lanes[lane], tx: ROAD.lanes[lane], speed: 0, skill: 0.9 + i * 0.025 + (this.level.n / 20) * 0.06, slowT: 0, think: 0, hw: car.userData.halfW, hl: car.userData.halfL, spin: 0, ov: 1 });
+      const lane = [0, 2, 1, 0][i], d = [6, 6, 14, 22][i], nm = r.name || names[(this.level.n + i) % names.length];
+      const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeLabel(nm, ['#ffd54f', '#80d8ff', '#ff8a80', '#b9f6ca'][i]), depthTest: false, transparent: true })); label.scale.set(2.6, 0.65, 1); label.position.y = car.userData.height + 1.1; label.renderOrder = 10; car.add(label);
+      const fl = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.3, 10), new THREE.MeshBasicMaterial({ color: 0x3d8bff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false })); fl.rotation.x = Math.PI / 2; fl.position.set(0, 0.35, car.userData.halfL + 0.7); fl.visible = false; car.add(fl);
+      this.rivals.push({ car, label, flame: fl, nitroT: 0, nitroCd: 6 + i * 3, name: nm, d, x: ROAD.lanes[lane], tx: ROAD.lanes[lane], speed: 0, skill: 0.9 + i * 0.025 + (this.level.n / 20) * 0.06, slowT: 0, think: 0, hw: car.userData.halfW, hl: car.userData.halfL, spin: 0, ov: 1 });
     });
   }
   makePolice() {
@@ -384,7 +411,9 @@ export class Race {
       const lb = new THREE.Group(); const red = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.25), new THREE.MeshBasicMaterial({ color: 0xff1a1a })), blue = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.25), new THREE.MeshBasicMaterial({ color: 0x2979ff }));
       red.position.x = -0.25; blue.position.x = 0.25; lb.add(red, blue); lb.position.y = car.userData.height + 0.08; car.add(lb);
       this.scene.add(car);
-      this.police.push({ car, red, blue, d: -55 - i * 18, x: ROAD.lanes[i ? 2 : 0], tx: 0, speed: 0, hw: car.userData.halfW, hl: car.userData.halfL });
+      const glowMat = (col) => new THREE.SpriteMaterial({ map: glowTex(), color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+      const gr = new THREE.Sprite(glowMat(0xff2020)), gb = new THREE.Sprite(glowMat(0x3070ff)); gr.scale.setScalar(3.2); gb.scale.setScalar(3.2); gr.position.set(-0.3, car.userData.height + 0.2, 0); gb.position.set(0.3, car.userData.height + 0.2, 0); car.add(gr, gb);
+      this.police.push({ car, red, blue, gr, gb, d: -32 - i * 16, x: ROAD.lanes[i ? 2 : 0], tx: 0, speed: 0, hw: car.userData.halfW, hl: car.userData.halfL });
     }
     sfx.sirenStart?.();
   }
@@ -402,6 +431,9 @@ export class Race {
       const lead = a.d - this.dist;
       let ts = base * a.skill * (lead > 30 ? 0.86 : lead > 12 ? 0.95 : lead < -30 ? 1.14 : lead < -10 ? 1.05 : 1);
       if (a.slowT > 0) { a.slowT -= dt; ts *= 0.45; }
+      // rakipler de nitro kullanır
+      if (running) { a.nitroCd -= dt; if (a.nitroCd <= 0 && a.nitroT <= 0 && lead < 40) { a.nitroT = 2; a.nitroCd = 9 + Math.random() * 8; } }
+      if (a.nitroT > 0) { a.nitroT -= dt; ts *= 1.35; } a.flame.visible = a.nitroT > 0; if (a.flame.visible) a.flame.scale.y = 0.8 + Math.random() * 0.5;
       if (a.d >= this.level.length) ts = 8;
       if (running || this.state === 'finish') a.speed += (ts - a.speed) * Math.min(1, dt * 0.9); else a.speed = 0;
       a.d += a.speed * dt;
@@ -427,7 +459,7 @@ export class Race {
       const ov = Math.sign(dz) || 1;
       if (running && a.ov > 0 && ov < 0) { if (Math.abs(dx) < a.hw + this.halfW + 1.1) this.nearMiss(); else this.addScore(30, `${a.name} geçildi! +30`); }
       a.ov = ov;
-      const c = a.car; c.visible = dz > -40 && dz < 320; c.position.set(a.x, 0, -a.d);
+      const c = a.car; c.visible = dz > -60 && dz < 320; c.position.set(a.x, 0, -a.d); a.label.visible = dz > -60 && dz < 140;
       if (a.spin > 0) { a.spin = Math.max(0, a.spin - dt); c.rotation.y = (1 - a.spin) * Math.PI * 2; } else c.rotation.y = -(a.tx - a.x) * 0.05;
     }
     // polis
@@ -441,7 +473,7 @@ export class Race {
         this.hearts--; this.popText(this.hearts > 0 ? `YAKALANDIN! ❤️-1` : 'YAKALANDIN! 🚓');
         if (this.hearts <= 0) { this.caught = true; this.state = 'crashed'; this.endT = 0; engineStop(); sfx.sirenStop?.(); sfx.lose(); }
       }
-      const blink = Math.floor(this.time * 6) % 2 === 0; p.red.visible = blink; p.blue.visible = !blink;
+      const blink = Math.floor(this.time * 6) % 2 === 0; p.red.visible = p.gr.visible = blink; p.blue.visible = p.gb.visible = !blink;
       p.car.visible = gap > -320 && gap < 60; p.car.position.set(p.x, 0, -p.d);
     }
     if (this.police.length) { const g = Math.min(...this.police.map(p => this.dist - p.d)); this.policeGap = g; sfx.sirenSet?.(Math.max(0, 1 - g / 90)); }
@@ -477,7 +509,25 @@ export class Race {
     this.windGeo.attributes.position.needsUpdate = true;
   }
 
-  render(dt) { this.engine.render(this.scene, this.camera, dt); }
+  render(dt) {
+    this.engine.render(this.scene, this.camera, dt);
+    if (this.mirrorRT && this.state !== 'countdown') this.drawMirror();
+  }
+  drawMirror() {
+    const R = this.engine.renderer, cv = R.domElement, W = cv.clientWidth, H = cv.clientHeight;
+    if ((this.mirrorN++ % 3) === 0) {
+      const mc = this.mirrorCam; mc.position.set(this.x, 1.7 + this.y, -this.dist + 0.3); mc.lookAt(this.x * 0.6, 1.1, -this.dist + 45);
+      const au = R.shadowMap.autoUpdate; R.shadowMap.autoUpdate = false;
+      R.setRenderTarget(this.mirrorRT); R.render(this.scene, mc); R.setRenderTarget(null);
+      R.shadowMap.autoUpdate = au;
+    }
+    const fr = document.getElementById('mirror').getBoundingClientRect();
+    if (!fr.width) return;
+    const ac = R.autoClear; R.autoClear = false; R.setScissorTest(true);
+    R.setViewport(fr.left + 4, H - fr.bottom + 4, fr.width - 8, fr.height - 8); R.setScissor(fr.left + 4, H - fr.bottom + 4, fr.width - 8, fr.height - 8);
+    R.render(this.mirrorScene, this.mirrorOrtho);
+    R.setScissorTest(false); R.setViewport(0, 0, W, H); R.autoClear = ac;
+  }
   // Tüm model/malzeme türlerini yükleme ekranında bir kez çiz: gölgelendirici derlemesi yarış sırasında olmasın
   async warmup() {
     const R = this.engine.renderer;
@@ -494,6 +544,7 @@ export class Race {
     this.unbindInput(); engineStop(); sfx.sirenStop?.();
     for (const a of [...this.rivals, ...this.police]) this.scene.remove(a.car);
     this.track.dispose(); this.world.dispose();
-    $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = '';
+    $('hud').classList.add('hidden'); $('touch').classList.add('hidden'); $('countdown').textContent = ''; $('police-glow').className = 'police-glow'; $('police-glow').style.opacity = 0;
+    this.mirrorRT?.dispose();
   }
 }

@@ -8,12 +8,35 @@ export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   master = ctx.createGain(); master.gain.value = enabled ? 0.8 : 0; master.connect(ctx.destination);
+  setTimeout(() => { if (musicWanted) playMusic(musicWanted); }, 50);
   for (const f of FILES) { const file = f.includes('.') ? f : f + '.mp3', key = f.replace(/\.\w+$/, '');
     fetch(assetURL(`sfx/${file}`)).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no))).then(b => { buf[key] = b; }).catch(() => {}); }
   // yumuşatma: hafif sıkıştırıcı (patlamaları törpüler)
   comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.2;
   master.disconnect(); master.connect(comp); comp.connect(ctx.destination);
 }
+// ---------- Müzik (ElevenLabs Music ile üretildi: menü, yarış, polis) ----------
+let music = null, musicWanted = null, musicOn = true;
+const musicBuf = {};
+function loadMusic(name) {
+  if (musicBuf[name]) return musicBuf[name];
+  musicBuf[name] = fetch(assetURL(`sfx/music_${name}.mp3`)).then(r => r.arrayBuffer()).then(a => new Promise((ok, no) => ctx.decodeAudioData(a, ok, no))).catch(() => null);
+  return musicBuf[name];
+}
+export async function playMusic(name) {
+  musicWanted = name;
+  if (!ctx || !musicOn) return;
+  if (music && music.name === name) return;
+  stopMusic();
+  const b = await loadMusic(name); if (!b || musicWanted !== name || (music && music.name === name)) return;
+  const s = ctx.createBufferSource(), g = ctx.createGain();
+  s.buffer = b; s.loop = true; s.loopStart = 0.08; s.loopEnd = b.duration - 0.08;
+  g.gain.value = 0; g.gain.setTargetAtTime(name === 'menu' ? 0.28 : 0.32, ctx.currentTime, 0.4);
+  s.connect(g); g.connect(master); s.start(0, 0.08); music = { name, s, g };
+}
+export function stopMusic() { if (!music) return; const m = music; music = null; try { m.g.gain.setTargetAtTime(0, ctx.currentTime, 0.25); m.s.stop(ctx.currentTime + 1.2); } catch {} }
+export function setMusic(on) { musicOn = on; if (!on) stopMusic(); else if (musicWanted) playMusic(musicWanted); }
+
 export function setSound(on) { enabled = on; if (master) master.gain.value = on ? 0.8 : 0; }
 
 function play(name, vol = 1, rate = 1) {

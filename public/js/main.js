@@ -7,7 +7,7 @@ import { Net } from './net.js';
 import { CARS, UPGRADES, MAX_UPG, upgradeCost, carStats, LEVELS, PAINTS, FINISHES, RIMS, SPOILERS, NEONS, DECALS, TINTS, defaultCustom } from './data.js';
 import { FOCUS } from './mods.js';
 import { save, persist, resetSave } from './save.js';
-import { initAudio, setSound, sfx } from './audio.js';
+import { initAudio, setSound, sfx, playMusic, setMusic } from './audio.js';
 import { preloadModels, raceModel } from './cars.js';
 import { trafficSet } from './track.js';
 import { preloadWorld } from './world.js';
@@ -18,7 +18,7 @@ const showroom = new Showroom(engine);
 showroom.onLoading = (on) => $('car-loading').classList.toggle('hidden', !on);
 const net = new Net();
 let screen = 'home', race = null, paused = false, currentLevel = null, raceMode = null, mpRoom = null, mpResults = [], garageIdx = 0;
-setSound(save.sound);
+setSound(save.sound); setMusic(save.music !== false);
 
 // ---------- yardımcılar ----------
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2200); }
@@ -44,12 +44,13 @@ function show(name) {
   for (const s of ['home', 'map', 'garage', 'mp', 'settings']) $(s).classList.toggle('hidden', s !== name);
   $('wallet').classList.toggle('hidden', name === 'race');
   document.body.classList.toggle('menu-bg', name !== 'race' && name !== 'map');
+  if (name !== 'race') playMusic('menu');
   showroom.active = name === 'garage' || name === 'home';
   if (name === 'home' || name === 'mp' || name === 'settings') { showroom.zone = zoneFor(name); const c = carById(save.car); showroom.setCar(c.type, customOf(c), upgOf(c)); showroom.resetView(); }
   if (name === 'map') renderMap($('map-wrap'), save, openLevelCard);
   if (name === 'garage') { garageIdx = CARS.findIndex(c => c.id === save.car); preview = {}; gtab = 'up'; renderGarage(); requestAnimationFrame(() => { showroom.zone = zoneFor('garage'); }); }
   if (name === 'mp') enterMp();
-  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; $('s-fps').checked = !!save.showFps; $('s-steer').value = save.steer || 'free'; }
+  if (name === 'settings') { $('s-name').value = save.name; $('s-quality').value = save.quality; $('s-sound').checked = save.sound; $('s-fps').checked = !!save.showFps; $('s-steer').value = save.steer || 'free'; $('s-music').checked = save.music !== false; }
   wallet();
 }
 document.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => { initAudio(); sfx.click(); show(b.dataset.go); }));
@@ -174,7 +175,7 @@ $('lc-go').onclick = () => { $('level-card').classList.add('hidden'); startRace(
 function tryFullscreen() { if (matchMedia('(pointer: coarse)').matches && !document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); }
 // Rakipler: oyuncunun arabası dışındaki araçlardan, bölüme göre sabit seçim
 function rivalsFor(level) {
-  const pool = CARS.filter(c => c.id !== save.car && c.type !== 'concept'), out = [];
+  const pool = CARS.filter(c => c.id !== save.car && c.type !== 'concept' && c.id !== 'police' && c.id !== 'fire'), out = [];
   for (let i = 0; i < 4; i++) { const c = pool[(level.n * 3 + i * 5) % pool.length]; out.push({ model: raceModel(c.type), color: c.colors[(level.n + i) % c.colors.length] }); }
   return out;
 }
@@ -202,6 +203,7 @@ async function startRace(level, o) {
   // gölgelendiricileri yükleme ekranındayken derle (yarış ortasında donma olmasın)
   try { await race.warmup(); } catch (e) { console.warn('warmup', e); }
   engine.resetFps();
+  playMusic(o.mp ? 'race' : level.mode === 'police' ? 'police' : 'race');
   $('loading').classList.add('hidden');
 }
 function raceEnded(r) {
@@ -216,6 +218,7 @@ function raceEnded(r) {
   $('r-rating').innerHTML = stars(r.rating);
   $('r-body').innerHTML = `<div class="reward"><span>★ +${r.stars + bonusStars}</span><span>◆ +${r.diamonds + bonusDia}</span></div>
     <p class="muted">Puan: <b>${r.score}</b> · Kıl payı: ${r.nearMisses} · Yıldız: ${r.stars}${r.success ? ` · Süre: ${r.time.toFixed(1)} sn` : ` · Yol: %${Math.round(r.dist / l.length * 100)}`}</p>
+    ${r.standings ? `<ul class="results">${r.standings.map(x => `<li class="${x.me ? 'me' : ''}"><span>${x.place}. ${x.name}</span><span>${x.place === 1 ? '🏆' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : ''}</span></li>`).join('')}</ul>` : ''}
     ${r.success && r.rating < 3 ? `<p class="hint">${r.mode === 'race' ? '3 yıldız için birinci ol!' : r.mode === 'police' ? '3 yıldız için hiç yakalanma!' : '3 yıldız için yıldızların %70\'ini topla ve hiç çarpma!'}</p>` : ''}`;
   const btns = $('r-buttons'); btns.innerHTML = '';
   const B = (t, cls, f) => { const b = document.createElement('button'); b.className = 'btn ' + cls; b.textContent = t; b.onclick = () => { sfx.click(); f(); }; btns.appendChild(b); };
@@ -318,9 +321,10 @@ function renderMpResults(final) {
 // ---------- Ayarlar ----------
 $('s-name').onchange = () => { save.name = $('s-name').value.trim() || 'Oyuncu'; persist(); };
 $('s-quality').onchange = () => { save.quality = $('s-quality').value; persist(); toast('Kalite, oyunu yeniden açınca uygulanır'); };
+$('s-music').onchange = () => { save.music = $('s-music').checked; persist(); setMusic(save.music); };
 $('s-steer').onchange = () => { save.steer = $('s-steer').value; persist(); };
 $('s-fps').onchange = () => { save.showFps = $('s-fps').checked; persist(); };
-$('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); };
+$('s-sound').onchange = () => { save.sound = $('s-sound').checked; persist(); setSound(save.sound); setMusic(save.music !== false); };
 $('s-full').onclick = () => document.documentElement.requestFullscreen?.().catch(() => toast('Bu cihaz tam ekranı desteklemiyor'));
 // ---------- Gizli deneme modu ----------
 // Sürüm yazısına 5 kez dokun -> kod alanı açılır. Kod: TURBO2026

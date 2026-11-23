@@ -119,6 +119,13 @@ function makeCollectible(kind) {
   return g;
 }
 
+// Polis arabasına tepe lambası + parıltı
+let copGlow = null;
+function addPoliceLights(car) {
+  if (!copGlow) { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); const g = x.createRadialGradient(32, 32, 2, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.35, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, 64, 64); copGlow = new THREE.CanvasTexture(c); }
+  const mk = (col, xo) => { const g = new THREE.Group(); const b = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.14, 0.25), new THREE.MeshBasicMaterial({ color: col })); const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: copGlow, color: col, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); s.scale.setScalar(3); g.add(b, s); g.position.set(xo, car.userData.height + 0.1, 0); car.add(g); return g; };
+  car.userData.cop = [mk(0xff2020, -0.25), mk(0x3070ff, 0.25)];
+}
 // Hız şeridi: yerde parlayan ok desenli şerit
 let boostTex = null;
 function makeBoost() {
@@ -192,7 +199,8 @@ export function generateLevel(level, seed) {
       if (!two) others = [pick(others)];
       for (const lane of others) {
         if (trafficLanes.has(lane)) continue;
-        if (r() < level.traffic) { ents.push({ kind: 'traffic', lane, z, speed: 4 + r() * 5, ttype: pick(TRAFFIC_TYPES), color: 'orig' }); newTraffic.add(lane); }
+        if (level.mode === 'police' && r() < 0.3) { ents.push({ kind: 'traffic', lane, z, speed: 0, ttype: 'police-car', color: 'orig', block: true }); } // polis barikatı
+        else if (r() < level.traffic) { ents.push({ kind: 'traffic', lane, z, speed: 4 + r() * 5, ttype: pick(TRAFFIC_TYPES), color: 'orig' }); newTraffic.add(lane); }
         else {
           const type = pick(themeObst); ents.push({ kind: 'obst', type, lane, z });
           if (OBST[type].h <= 1.1 && r() < 0.35) { for (let i = -1; i <= 1; i++) { ents.push({ kind: 'star', lane, z: z + i * 2.6, y: 2.1 - Math.abs(i) * 0.4 }); totalStars++; } }
@@ -238,7 +246,7 @@ export class TrackView {
     let key, obj;
     switch (e.kind) {
       case 'obst': key = 'o:' + e.type; obj = this.acquire(key, () => makeObstacle(e.type, this.r)); Object.assign(e, obj.userData); break;
-      case 'traffic': key = 't:' + e.ttype + e.color; obj = this.acquire(key, () => buildCar(e.ttype, e.color, { lite: true }));
+      case 'traffic': key = 't:' + e.ttype + e.color; obj = this.acquire(key, () => { const c = buildCar(e.ttype, e.color, { lite: true }); if (e.ttype === 'police-car') addPoliceLights(c); return c; });
         e.hw = obj.userData.halfW; e.hl = obj.userData.halfL; e.h = obj.userData.height + 0.15; break;
       case 'ramp': key = 'ramp'; obj = this.acquire(key, makeRamp); break;
       case 'boost': key = 'boost'; obj = this.acquire(key, makeBoost); break;
@@ -284,6 +292,7 @@ export class TrackView {
       } else {
         o.position.z = -e.z;
         if (e.magnet) { o.position.x += (e.magnet.x - o.position.x) * Math.min(1, dt * 12); o.position.y += (e.magnet.y + 1 - o.position.y) * Math.min(1, dt * 12); }
+        if (o.userData.cop) { const b = Math.floor(time * 6 + e.z) % 2 === 0; o.userData.cop[0].visible = b; o.userData.cop[1].visible = !b; }
         if (e.kind === 'boost') o.userData.boost.material.map.offset.y = -time * 1.5;
         if (e.kind === 'star') o.rotation.y = Math.sin(time * 2.5 + e.z * 0.3) * 0.7; // hep kameraya dönük salınır (yandan çubuk gibi görünmesin)
         else if (e.kind === 'diamond') { o.rotation.y = time * 2; o.position.y = e.y + Math.sin(time * 3 + e.z) * 0.15; }
