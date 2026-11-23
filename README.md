@@ -1,5 +1,7 @@
 # 🏁 Turbo Köy
 
+**Hemen oyna:** https://borgatelefondeneme-arch.github.io/Araba/
+
 Telefon ve tablette oynanan, **aynı Wi-Fi ağında çocuğunla birlikte** yarışabileceğin 3D araba yarışı.
 Subway Surfers tarzında 3 şeritli yolda kayarak ilerlersin; köy haritasında bölüm bölüm açılan yollarda
 yıldız ⭐ ve elmas 💎 toplar, bunlarla yeni arabalar alır ve arabalarını yükseltirsin.
@@ -16,6 +18,9 @@ Oyunu bir bilgisayar (Windows / Mac / Linux) "sunucu" olarak yayınlar; telefon 
    - Tarayıcı menüsünden **"Ana ekrana ekle"** dersen tam ekran uygulama gibi açılır.
 
 > Windows güvenlik duvarı "Node.js'e izin verilsin mi?" diye sorarsa **Özel ağlar** için izin ver.
+
+## GitHub Pages
+`node tools/build.mjs` sonra `dist/pages` klasörünün içeriği `gh-pages` dalına gönderilir. Bu sürümde birlikte oynama tarayıcıdan tarayıcıya (WebRTC, PeerJS) çalışır: bir cihaz oda kurar, diğeri 4 harfli kodu yazar.
 
 ## Kurulumsuz oynamak
 - **Tek dosya:** `node tools/build.mjs` komutu `dist/turbo-koy.html` dosyasını üretir (tüm araçlar, sesler ve görseller içinde). Bu dosyayı bilgisayarda Chrome/Edge/Safari ile açman yeterli. Tek dosyada birlikte oynama kapalıdır.
