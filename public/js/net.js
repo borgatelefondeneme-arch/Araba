@@ -8,7 +8,7 @@ export class Net {
   get id() { return this.impl?.id ?? null; }
   get mode() { return this.impl?.mode || null; }
   connect() {
-    if (!this.impl) this.impl = (window.claude && typeof window.claude.use === 'function') ? new RoomImpl(this) : new WsImpl(this);
+    if (!this.impl) this.impl = (window.TURBO_NET === 'room' || (window.claude && typeof window.claude.use === 'function')) ? new RoomImpl(this) : window.TURBO_NET === 'none' ? new NoNet(this) : new WsImpl(this);
     this.impl.connect();
   }
   get connected() { return !!this.impl?.connected; }
@@ -17,6 +17,11 @@ export class Net {
   emit(t, m) { for (const f of this.handlers[t] || []) f(m); }
 }
 
+class NoNet {
+  constructor(net) { this.net = net; this.mode = 'none'; this.id = null; this.connected = false; }
+  connect() { this.net.emit('close'); this.net.emit('error', { msg: 'Birlikte oynamak için oyunu bilgisayardan (npm start) ya da claude.ai bağlantısından aç.' }); }
+  send() {}
+}
 class WsImpl {
   constructor(net) { this.net = net; this.mode = 'ws'; this.ws = null; this.queue = []; this.id = null; }
   connect() {
@@ -42,7 +47,7 @@ class RoomImpl {
   }
   async connect() {
     if (this.starting) return; this.starting = true;
-    const lobby = await window.claude.use('room').catch(() => null);
+    const lobby = window.claude?.use ? await window.claude.use('room').catch(() => null) : null;
     if (!lobby) { this.net.emit('close'); this.net.emit('error', { msg: 'Birlikte oynama bu görünümde kullanılamıyor (giriş yapmış olmalısın).' }); this.starting = false; return; }
     this.lobby = lobby;
     lobby.onConnection((c) => { this.connected = c; this.net.emit(c ? 'open' : 'close'); }, () => { this.connected = false; this.net.emit('close'); });

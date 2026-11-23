@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { World } from './world.js';
 import { TrackView } from './track.js';
 import { buildCar, spinWheels } from './cars.js';
+import { applyMods, animateMods } from './mods.js';
 import { ROAD, makeBlobShadow, makeLabel } from './textures.js';
 import { sfx, engineStart, engineSet, engineStop } from './audio.js';
 
@@ -21,7 +22,8 @@ export class Race {
     engine.setBloom(this.world.T.bloom);
     this.camera = new THREE.PerspectiveCamera(62, engine.aspect, 0.3, 6000);
     // oyuncu arabası
-    this.car = buildCar(carDef.type, color); this.scene.add(this.car);
+    this.car = buildCar(carDef.type, color, { finish: opts.custom?.finish }); this.scene.add(this.car);
+    try { applyMods(this.car, opts.custom || {}, opts.upg || {}); } catch (e) { console.warn('mods', e); }
     if (this.world.T.night) { // gece farları
       const hl = new THREE.SpotLight(0xfff1d6, 60, 70, 0.45, 0.6, 1.2); hl.position.set(0, 0.9, -this.car.userData.halfL); hl.target.position.set(0, 0, -this.car.userData.halfL - 25);
       this.car.add(hl); this.car.add(hl.target);
@@ -198,7 +200,7 @@ export class Race {
     this.roll = THREE.MathUtils.lerp(this.roll || 0, vx * 0.012, 0.2);
     const pitch = this.onRamp ? 0.18 : (this.y > 0.05 ? THREE.MathUtils.clamp(this.vy * 0.015, -0.12, 0.12) : Math.sin(this.time * 30) * 0.002 * this.speed / 30);
     c.rotation.set(pitch, -vx * 0.035, this.roll);
-    spinWheels(c, this.dist);
+    spinWheels(c, this.dist); animateMods(c, this.time);
     c.visible = !(this.invT > 0 && Math.floor(this.time * 12) % 2 === 0);
     for (const f of this.flames) { f.visible = this.nitroT > 0; f.scale.set(1, 0.8 + Math.random() * 0.5, 1); }
     this.bubble.visible = this.shieldT > 0; this.bubble.material.opacity = 0.18 + Math.sin(this.time * 8) * 0.05;

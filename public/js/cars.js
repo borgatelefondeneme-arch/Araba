@@ -1,6 +1,8 @@
 // Yüksek poligonlu glTF araç modelleri: yükleme, boya rengi değiştirme, tekerlek döndürme
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { assetURL } from './assets.js';
 
 // Grab3D modelleri: CC0 (grab3d.com). CarConcept: Khronos glTF Sample Assets, CC-BY 4.0 (Darmstadt Graphics Group / Eric Chadwick).
 export const MODELS = {
@@ -27,15 +29,16 @@ export const MODELS = {
 export const TRAFFIC_MODELS = ['compact-car', '1990s-taxi', 'delivery-van', 'ice-cream-truck', 'electric-car', '1990s-suv', 'coupe', 'convertible'];
 export const LOW_TRAFFIC = ['compact-car', 'coupe', 'electric-car', 'convertible', '1990s-taxi'];
 
-const loader = new GLTFLoader();
-// claude.ai yayınında .glb sunulmadığı için aynı modeller .json (glTF) + .jpg doku olarak yüklenir
-const FMT = (window.claude && typeof window.claude.use === 'function') ? 'json' : 'glb';
+const manager = new THREE.LoadingManager(); manager.setURLModifier(assetURL);
+const loader = new GLTFLoader(manager); loader.setMeshoptDecoder(MeshoptDecoder);
+// claude.ai yayınında .glb sunulmadığı için sayfa TURBO_FMT='json' ayarlar (glTF + ayrı dokular)
+const FMT = () => window.TURBO_FMT || 'glb';
 const cache = new Map();
 
 export function loadModel(key) {
   if (!MODELS[key]) key = 'hatchback';
   if (cache.has(key)) return cache.get(key);
-  const p = loader.loadAsync('models/' + MODELS[key].file.replace(/\.glb$/, '.' + FMT)).then(g => prepare(key, g.scene));
+  const p = loader.loadAsync('models/' + MODELS[key].file.replace(/\.glb$/, '.' + FMT())).then(g => prepare(key, g.scene));
   cache.set(key, p);
   p.catch(() => cache.delete(key));
   return p;
@@ -144,11 +147,40 @@ function paintedMaterials(tpl, color) {
   paintCache.set(key, map); return map;
 }
 
+// Boya kaplaması: parlak / metalik / mat / sedef / şeker / krom
+const FIN = {
+  metal: { metalness: 0.65, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.04, dropMaps: true },
+  matte: { metalness: 0.0, roughness: 0.78, clearcoat: 0, clearcoatRoughness: 0.5, dropMaps: true },
+  pearl: { metalness: 0.25, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.03, iridescence: 1, iridescenceIOR: 1.35, dropMaps: true },
+  candy: { metalness: 0.85, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.02, dropMaps: true },
+  chrome: { metalness: 1, roughness: 0.06, clearcoat: 1, clearcoatRoughness: 0.02, dropMaps: true },
+};
+const finCache = new Map();
+function finishMaterials(tpl, color, finish, base) {
+  const key = tpl.userData.key + color + finish;
+  if (finCache.has(key)) return finCache.get(key);
+  const f = FIN[finish]; const out = new Map(base || []);
+  if (!f) { finCache.set(key, out); return out; }
+  tpl.traverse(o => {
+    if (!o.isMesh) return;
+    const orig = o.material, cur = out.get(orig) || orig, n = (orig.name || '');
+    const isPaint = n.toLowerCase().includes('body_pbr') || /^Paint 1/.test(n) || (base && base.has(orig) && !n.toLowerCase().includes('body_pbr'));
+    if (!isPaint || !cur.isMeshPhysicalMaterial && !cur.isMeshStandardMaterial) return;
+    let m = cur.isMeshPhysicalMaterial ? cur.clone() : new THREE.MeshPhysicalMaterial({ map: cur.map, color: cur.color, normalMap: cur.normalMap });
+    if (f.dropMaps) { m.metalnessMap = null; m.roughnessMap = null; }
+    Object.assign(m, { metalness: f.metalness, roughness: f.roughness, clearcoat: f.clearcoat, clearcoatRoughness: f.clearcoatRoughness, iridescence: f.iridescence || 0 });
+    if (f.iridescenceIOR) m.iridescenceIOR = f.iridescenceIOR;
+    m.needsUpdate = true; out.set(orig, m);
+  });
+  finCache.set(key, out); return out;
+}
+
 // Senkron örnek oluşturma (model önceden yüklenmiş olmalı)
 export function buildCar(key, color, opts = {}) {
   const tpl = ready.get(key) || ready.get('hatchback') || ready.values().next().value;
   const car = tpl.clone(true);
-  const mats = color && color !== 'orig' ? paintedMaterials(tpl, color) : null;
+  const base = color && color !== 'orig' ? paintedMaterials(tpl, color) : null;
+  const mats = opts.finish && opts.finish !== 'gloss' ? finishMaterials(tpl, color || 'orig', opts.finish, base) : base;
   car.traverse(o => {
     if (!o.isMesh) return;
     if (mats && mats.has(o.material)) o.material = mats.get(o.material);

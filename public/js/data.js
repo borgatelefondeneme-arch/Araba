@@ -56,3 +56,37 @@ REGIONS.forEach((r, ri) => {
     });
   }
 });
+
+// ---------- Kişiselleştirme (garaj) ----------
+export const PAINTS = [
+  ['#d32f2f', 'Kırmızı'], ['#b71c1c', 'Bordo'], ['#ff1744', 'Ateş'], ['#ff6d00', 'Turuncu'], ['#ffab00', 'Kehribar'], ['#ffd600', 'Sarı'],
+  ['#c6ff00', 'Limon'], ['#43a047', 'Yeşil'], ['#1b5e20', 'Orman'], ['#00bfa5', 'Turkuaz'], ['#00b8d4', 'Camgöbeği'], ['#40c4ff', 'Gök'],
+  ['#1e88e5', 'Mavi'], ['#0d47a1', 'Lacivert'], ['#304ffe', 'Elektrik'], ['#7c4dff', 'Mor'], ['#4a148c', 'Patlıcan'], ['#f50057', 'Pembe'],
+  ['#ff80ab', 'Şeker Pembe'], ['#8d6e63', 'Kahve'], ['#fafafa', 'Beyaz'], ['#b0bec5', 'Gümüş'], ['#546e7a', 'Antrasit'], ['#121212', 'Siyah'],
+].map(([id, name]) => ({ id, name }));
+export const FINISHES = [
+  { id: 'gloss', name: 'Parlak', price: 0 }, { id: 'metal', name: 'Metalik', price: 0 }, { id: 'matte', name: 'Mat', price: 200 },
+  { id: 'pearl', name: 'Sedef', price: 400 }, { id: 'candy', name: 'Şeker Cila', price: 600 }, { id: 'chrome', name: 'Krom', price: 900 },
+];
+export const RIMS = [
+  { id: 'orig', name: 'Orijinal', price: 0 }, { id: '#e0e0e0', name: 'Gümüş', price: 100 }, { id: '#1a1a1a', name: 'Siyah', price: 120 },
+  { id: '#d4af37', name: 'Altın', price: 300 }, { id: '#e53935', name: 'Kırmızı', price: 150 }, { id: '#1e88e5', name: 'Mavi', price: 150 },
+  { id: '#76ff03', name: 'Neon Yeşil', price: 200 }, { id: '#ff4081', name: 'Pembe', price: 150 }, { id: '#ff9100', name: 'Turuncu', price: 150 },
+];
+export const SPOILERS = [
+  { id: 'none', name: 'Yok', price: 0, icon: '—' }, { id: 'lip', name: 'Dudak', price: 100, icon: '▁' }, { id: 'duck', name: 'Ördek Kuyruk', price: 200, icon: '◢' },
+  { id: 'gt', name: 'GT Kanat', price: 350, icon: '╤' }, { id: 'big', name: 'Dev Kanat', price: 600, icon: '╦' },
+];
+export const NEONS = [
+  { id: 'none', name: 'Kapalı', price: 0 }, { id: '#00e5ff', name: 'Buz Mavisi', price: 250 }, { id: '#ff00e5', name: 'Pembe', price: 250 },
+  { id: '#00ff6a', name: 'Yeşil', price: 250 }, { id: '#8a2bff', name: 'Mor', price: 250 }, { id: '#ff7a00', name: 'Turuncu', price: 250 },
+  { id: '#ff1a1a', name: 'Kırmızı', price: 250 }, { id: 'rainbow', name: 'Gökkuşağı', price: 500 },
+];
+export const DECALS = [
+  { id: 'none', name: 'Yok', price: 0, icon: '—' }, { id: 'stripes', name: 'Yarış Şeridi', price: 150, icon: '║' }, { id: 'flames', name: 'Alev', price: 300, icon: '🔥' },
+  { id: 'number', name: 'Yarış No', price: 120, icon: '7' }, { id: 'stars', name: 'Yıldızlar', price: 200, icon: '⭐' }, { id: 'bolt', name: 'Şimşek', price: 250, icon: '⚡' },
+];
+export const TINTS = [
+  { id: 'none', name: 'Şeffaf', price: 0 }, { id: 'light', name: 'Açık Film', price: 80 }, { id: 'dark', name: 'Koyu Film', price: 120 }, { id: 'black', name: 'Limuzin', price: 160 },
+];
+export function defaultCustom(car) { return { paint: car.colors[0], finish: 'gloss', rim: 'orig', spoiler: 'none', neon: 'none', decal: 'none', tint: 'none' }; }

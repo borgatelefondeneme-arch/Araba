@@ -17,6 +17,13 @@ Oyunu bir bilgisayar (Windows / Mac / Linux) "sunucu" olarak yayınlar; telefon 
 
 > Windows güvenlik duvarı "Node.js'e izin verilsin mi?" diye sorarsa **Özel ağlar** için izin ver.
 
+## Kurulumsuz oynamak
+- **Tek dosya:** `node tools/build.mjs` komutu `dist/turbo-koy.html` dosyasını üretir (tüm araçlar, sesler ve görseller içinde). Bu dosyayı bilgisayarda Chrome/Edge/Safari ile açman yeterli. Tek dosyada birlikte oynama kapalıdır.
+- **claude.ai yayını:** Aynı komut `dist/artifact` klasörünü de üretir; bu klasör claude.ai'de yayınlanır ve orada birlikte oynama sunucusuz çalışır.
+
+## Garaj
+Arabayı parmakla çevir, iki parmakla yakınlaştır. Sekmeler: Yükselt (motor → kaput hava girişi, nitro → egzoz ve N₂O yazısı, mıknatıs → tavanda mıknatıs, zırh → koruma demiri ve tavan lambası, yol tutuş → alçaltılmış gövde), Boya (24 renk), Kaplama (parlak, metalik, mat, sedef, şeker cila, krom), Jant, Kanat, Neon, Çıkartma, Cam filmi. Kilitli parçalar önce denenir, beğenirsen yıldızla alınır.
+
 ## Birlikte oynamak
 1. İki cihazda da **Birlikte Oyna**'ya gir.
 2. Biri **Oda Kur**'a bassın; diğeri listede çıkan odaya **Katıl** desin (ya da 4 harfli kodu yazsın).

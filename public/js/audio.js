@@ -1,4 +1,5 @@
 // Ses: ElevenLabs ile üretilmiş gerçekçi kayıtlar (public/sfx) + yedek sentez sesler
+import { assetURL } from './assets.js';
 let ctx = null, master, enabled = true;
 const buf = {};
 const FILES = ['engine_idle', 'engine_loop', 'engine_high', 'wind_loop', 'nitro', 'crash', 'bump', 'star', 'diamond', 'powerup', 'jump', 'land', 'horn', 'countdown', 'go', 'win', 'lose', 'tires'];
@@ -7,7 +8,7 @@ export function initAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return; }
   master = ctx.createGain(); master.gain.value = enabled ? 0.8 : 0; master.connect(ctx.destination);
-  for (const f of FILES) fetch(`sfx/${f}.mp3`).then(r => r.arrayBuffer()).then(a => ctx.decodeAudioData(a)).then(b => { buf[f] = b; }).catch(() => {});
+  for (const f of FILES) fetch(assetURL(`sfx/${f}.mp3`)).then(r => r.arrayBuffer()).then(a => ctx.decodeAudioData(a)).then(b => { buf[f] = b; }).catch(() => {});
 }
 export function setSound(on) { enabled = on; if (master) master.gain.value = on ? 0.8 : 0; }
 
