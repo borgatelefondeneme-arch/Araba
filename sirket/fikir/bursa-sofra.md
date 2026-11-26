@@ -116,3 +116,14 @@ Sahibin önerisi (26.11.2026): İlk katılanlara kurulum ve 3 ay kullanım ücre
 **Nakit akışına etkisi:** İlk 3 ay bu 10 restorandan gelir yok. Pilot dönemi giderleri düşük (~1.500 TL: alan adı ve sticker), bu yüzden "ilk ay zarar yok" hedefi korunur. 11. restorandan itibaren normal fiyat geçerli. 3. ay sonu kararı artık **"10 kurucu restorandan en az 6'sı ücretli devam ediyor mu + ücretli yeni restoran var mı"** sorusuna göre verilir.
 
 **Gelir örneği (4-6. ay):** 7 kurucu × 6.000 TL + 20 normal restoran × 9.000 TL = 222.000 TL yıllık sözleşme. Peşin tahsil edilirse ilk aylarda nakit güçlü olur; aylık bazda ≈ 18.500 TL tekrarlayan gelir + yeni kurulumlar (ayda 3-4 × 4.000 TL ≈ 14.000 TL) ≈ **32.000 TL/ay**.
+
+## 10. Rakip notu: neyiyelim.com (26.11.2026)
+
+`neyiyelim.com` 2005'ten beri kayıtlı ve bugün **tam olarak bizim fikrimizle** çalışıyor: "Komisyonsuz yemek siparişi. Restoran komisyon ödemez, müşteri ekstra ücret ödemez. Menünü ekle, kuryeni bağla, bedava başla." Türkiye (İstanbul, Ankara, İzmir, diğer iller) ve Avrupa, Körfez, ABD'de listeleniyor.
+
+**Sonuçlar:**
+- Bu ismi ve benzerlerini kullanmıyoruz (karışıklık ve marka riski).
+- Rakip **ücretsiz ve kendin kur** modelinde. "Komisyonsuz" tek başına fark değil.
+- Bizim farkımız hizmet olmalı: menüyü biz gireriz, sticker ve poşet kartını biz basarız, restoranın WhatsApp'ını biz bağlarız, sorun olursa Bursa'da yerelde biz çözeriz. Restoranın emeği sıfır.
+- Satış konuşmasında bu rakip sorulursa saklamıyoruz: "İsterseniz kendiniz ücretsiz kurabilirsiniz; biz anahtar teslim yapıyor ve müşterinizi direkt siparişe taşımanıza yardım ediyoruz."
+- Ücretsiz rakip, kurulum ücretini savunmayı zorlaştırır. Kurucu Restoran programındaki ücretsiz kurulum bu yüzden daha da önemli. Pilot verisiyle fiyatlar yeniden değerlendirilecek.
