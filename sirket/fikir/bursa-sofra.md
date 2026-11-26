@@ -90,9 +90,29 @@ Restoran sayısı arttıkça `bursasofra.com` rehberi kendiliğinden değer kaza
 | Dönem | İş | Para |
 |---|---|---|
 | Hafta 1-2 | Ben: çok restoranlı sipariş sitesi (Aşama 1), demo restoran, QR sticker şablonu | Alan adı ~500 TL |
-| Hafta 3-6 | **Tek semtte pilot** (öneri: Görükle; öğrenci yoğun, paket sipariş çok). 5 restorana ilk 3 ay ücretsiz, karşılığında sipariş sayılarını paylaşırlar | Sticker baskısı ~1.000 TL |
+| Hafta 3-8 | **Kurucu Restoran programı** (bölüm 9): Görükle'den başlayarak 10 restoran, kurulum + 3 ay ücretsiz | Sticker baskısı ~1.000 TL |
 | 2-3. ay | Pilot sayıları iyiyse ücretli satış, kurye programı, Google Ads denemesi | Reklam 3.000 TL, şirket kuruluşu |
-| 3. ay sonu | **Karar:** 10'dan az ödeyen restoran varsa dur | — |
+| 3. ay sonu | **Karar:** 10 kurucudan 6'dan azı ücretli devam ediyorsa ve ücretli yeni restoran yoksa dur | — |
 | 4-6. ay | Aşama 2 (WhatsApp API ve asistan), rehberin tanıtımı, diğer semtler | Gelirden |
 
 **Pilot başarı ölçütü:** 5 restoranda, 4 haftada, restoran başına haftada en az 10 direkt sipariş.
+
+## 9. Kurucu Restoran programı (ücretsiz deneme)
+
+Sahibin önerisi (26.11.2026): İlk katılanlara kurulum ve 3 ay kullanım ücretsiz.
+
+**Kurallar:**
+- Sadece **ilk 10 restoran**. Sayının sınırlı olması aciliyet yaratır ve bizim emeğimizi korur.
+- **Kurulum ücreti alınmaz.** 3. ayın sonunda devam eden restorandan da hiçbir zaman alınmaz.
+- **3 ay kullanım ücretsiz.** Sonrasında yıllık ücret, kurucu indirimiyle **6.000 TL/yıl** (normali 9.000 TL). Bu fiyat restoran ayrılmadığı sürece sabit kalır.
+- 3. ayın sonunda restoran hiçbir ceza ödemeden ayrılabilir. Alan adı ve müşteri listesi restoranda kalır.
+
+**Restoranın karşılığında yapacakları (yazılı, bir sayfalık katılım formu):**
+1. QR sticker'ı kasaya, masalara ve kapıya yapıştırmak; paket servis kartlarını poşete koymak.
+2. Direkt siparişte bir indirim ya da ikram sunmak (miktarı restoran belirler).
+3. Her hafta direkt sipariş sayısını paylaşmak. WhatsApp'tan tek bir sayı yazmak yeterli.
+4. Memnunsa, adını ve görüşünü referans olarak kullanmamıza izin vermek.
+
+**Nakit akışına etkisi:** İlk 3 ay bu 10 restorandan gelir yok. Pilot dönemi giderleri düşük (~1.500 TL: alan adı ve sticker), bu yüzden "ilk ay zarar yok" hedefi korunur. 11. restorandan itibaren normal fiyat geçerli. 3. ay sonu kararı artık **"10 kurucu restorandan en az 6'sı ücretli devam ediyor mu + ücretli yeni restoran var mı"** sorusuna göre verilir.
+
+**Gelir örneği (4-6. ay):** 7 kurucu × 6.000 TL + 20 normal restoran × 9.000 TL = 222.000 TL yıllık sözleşme. Peşin tahsil edilirse ilk aylarda nakit güçlü olur; aylık bazda ≈ 18.500 TL tekrarlayan gelir + yeni kurulumlar (ayda 3-4 × 4.000 TL ≈ 14.000 TL) ≈ **32.000 TL/ay**.
