@@ -1,7 +1,9 @@
-# İş Planı: Bursa Yerel Dijital Hizmetler
+# İş Planı: Tezgâh Dijital (Bursa)
+
+> **Güncelleme (26.11.2026):** Kapı kapı satış yok. Müşteri kanalları: Google Ads (Bursa), kendi Google profilimiz ve sitemiz (`site/`), Armut ve sınırlı kişisel e-posta. WhatsApp API yalnızca bize yazanlarla konuşmak için kullanılır; tanımadığımız kişilere ilk mesaj atılmaz (Meta kuralı). Yeni "Sipariş Al" pilot paketi ve gerekçeleri: `rapor/pazar-ve-reklam-raporu.md`. Bu güncellemeden önce yazılan 5. bölüm (Haftalık çalışma düzeni) ile `satis/ilk-gorusme.md` artık geçerli değil.
 
 Sermaye: **20.000 TL** · Başlangıç: **Aralık 2026** · Yer: **Bursa**
-Rol dağılımı: Claude = işi yürüten (araştırma, üretim, plan, kayıt) · Sahip = ödemeler, onaylar, yüz yüze görüşmeler (günde 2-3 saat)
+Rol dağılımı: Claude = işi yürüten (araştırma, üretim, reklam metni, müşteri yazışma taslakları, kayıt) · Sahip = hesap açma ve doğrulama, ödemeler, onaylar, gerektiğinde kısa telefon görüşmesi
 
 ## 1. Ne iş yapıyoruz?
 

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tezgâh Dijital · Bursa esnafı için dijital hizmet</title>
+<meta name="description" content="Bursa'daki esnafa anahtar teslim Google profili, web sitesi, online sipariş ve WhatsApp asistanı. Aylık sabit ücret, kurulum bizden.">
+<style>
+  :root{
+    --bg:#f7f5f0; --card:#fff; --ink:#1d2321; --muted:#5f6b66; --line:#e3e0d8;
+    --brand:#1f6f5c; --brand-ink:#fff; --soft:#e4f1ec; --wa:#25a35a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#121715; --card:#1a211e; --ink:#eef3f0; --muted:#a3b0aa; --line:#2b3531; --brand:#3fae90; --soft:#1d2e28; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;padding-bottom:80px}
+  a{color:var(--brand)}
+  .wrap{max-width:960px;margin:0 auto;padding:0 16px}
+  nav.top{display:flex;justify-content:space-between;align-items:center;padding:16px 0}
+  .brand{font-weight:800;font-size:20px;letter-spacing:-.3px;color:var(--ink);text-decoration:none}
+  .brand b{color:var(--brand)}
+  .hero{padding:40px 0 48px}
+  .hero h1{font-size:clamp(30px,6.5vw,50px);line-height:1.12;margin:0 0 16px;letter-spacing:-1px;max-width:20ch}
+  .hero p{font-size:18px;color:var(--muted);max-width:56ch;margin:0 0 24px}
+  .btn{display:inline-block;background:var(--brand);color:var(--brand-ink);text-decoration:none;font-weight:700;padding:14px 22px;border-radius:12px}
+  .btn.ghost{background:transparent;color:var(--brand);border:2px solid var(--brand);margin-left:8px}
+  section{padding:36px 0;border-top:1px solid var(--line)}
+  h2{font-size:26px;margin:0 0 8px;letter-spacing:-.5px}
+  .lead{color:var(--muted);margin:0 0 24px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px}
+  .card h3{margin:0 0 6px;font-size:19px}
+  .price{font-size:22px;font-weight:800;margin:8px 0 12px}
+  .price small{font-size:14px;font-weight:500;color:var(--muted)}
+  .card ul{margin:0;padding-left:18px}
+  .card li{margin:4px 0}
+  .tag{display:inline-block;background:var(--soft);color:var(--brand);font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;margin-bottom:8px}
+  .card.hl{border:2px solid var(--brand)}
+  .steps{counter-reset:s;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+  .step{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--brand);color:var(--brand-ink);font-weight:800;margin-bottom:8px}
+  details{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:8px 0}
+  summary{font-weight:700;cursor:pointer}
+  footer{color:var(--muted);font-size:14px;padding:32px 0;border-top:1px solid var(--line)}
+  .bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+  .bar a{flex:1;text-align:center;text-decoration:none;font-weight:700;padding:12px;border-radius:12px;color:#fff;background:var(--wa)}
+  .bar a.call{background:var(--brand)}
+  @media (max-width:420px){ .btn.ghost{margin:10px 0 0} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top">
+    <a class="brand" href="#">Tezgâh <b>Dijital</b></a>
+    <a href="#paketler">Paketler</a>
+  </nav>
+
+  <header class="hero">
+    <h1>Dükkânınız Google'da bulunsun, siparişi siteden alsın.</h1>
+    <p>Bursa'daki kafe, restoran, berber, kuaför, oto yıkama ve servislere <b>anahtar teslim</b> dijital hizmet. Kurulumu biz yaparız, siz işinize bakarsınız. Aylık sabit ücret, sürpriz yok.</p>
+    <a class="btn" href="https://wa.me/900000000000?text=Merhaba%2C%20i%C5%9Fletmem%20i%C3%A7in%20bilgi%20almak%20istiyorum">WhatsApp'tan yazın</a>
+    <a class="btn ghost" href="#paketler">Fiyatları gör</a>
+  </header>
+
+  <section id="paketler">
+    <h2>Paketler</h2>
+    <p class="lead">Fiyatlar KDV hariçtir. Kesin teklif, işletmenizin ihtiyacına göre verilir.</p>
+    <div class="cards">
+      <div class="card">
+        <span class="tag">Tek seferlik</span>
+        <h3>Görün</h3>
+        <div class="price">5.000 TL'den <small>kurulum</small></div>
+        <ul>
+          <li>Google Haritalar profilinin kurulumu ve düzenlenmesi</li>
+          <li>Telefona uygun tek sayfalık web sitesi</li>
+          <li>Ara / WhatsApp / Yol tarifi düğmeleri</li>
+          <li>QR menü veya hizmet listesi</li>
+          <li>Alan adı ilk yıl dahil</li>
+        </ul>
+      </div>
+      <div class="card hl">
+        <span class="tag">En çok önerilen</span>
+        <h3>Görün+</h3>
+        <div class="price">2.000 TL'den <small>/ ay</small></div>
+        <ul>
+          <li>Site ve Google profili güncel tutulur</li>
+          <li>Her hafta Google profil gönderisi</li>
+          <li>Yorumlara düzenli cevap</li>
+          <li>Ayda 8 sosyal medya görseli ve metni</li>
+          <li>Aylık kısa rapor: kaç kişi aradı, yol tarifi aldı</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag">Pilot · sınırlı sayıda</span>
+        <h3>Sipariş Al</h3>
+        <div class="price">3.500 TL'den <small>/ ay</small></div>
+        <ul>
+          <li>Siteden komisyonsuz sipariş</li>
+          <li>Siparişler WhatsApp'a ve panele düşer</li>
+          <li>Menü, saat ve sipariş durumu soranlara WhatsApp asistanı cevap verir; bilmediğini size yönlendirir</li>
+          <li>Görün+ hizmetleri dahil</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Nasıl çalışıyoruz?</h2>
+    <p class="lead">Sizden en fazla 30 dakika isteriz.</p>
+    <div class="steps">
+      <div class="step"><b>Yazın</b><br>WhatsApp'tan işletmenizin adını yazmanız yeterli. Mevcut durumunuza bakıp ücretsiz kısa bir değerlendirme gönderiyoruz.</div>
+      <div class="step"><b>Bilgileri paylaşın</b><br>Fotoğraflar, menü veya hizmet listesi, çalışma saatleri. Telefondan göndermeniz yeterli.</div>
+      <div class="step"><b>Kurulum</b><br>3-5 iş günü içinde siteniz ve profiliniz hazır. Onayınız olmadan yayına almayız.</div>
+      <div class="step"><b>Takip</b><br>Aylık pakette her ay ne yaptığımızı ve sonuçları kısa bir raporla iletiriz.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sık sorulanlar</h2>
+    <details><summary>Google profilimin sahibi kim olur?</summary><p>Siz. Profil ve alan adı işletmeniz adına açılır, biz yalnızca yönetici olarak ekleniriz. Ayrılırsanız her şey sizde kalır.</p></details>
+    <details><summary>Aylık pakette taahhüt var mı?</summary><p>Görün+ için taahhüt yok, istediğiniz ay bırakabilirsiniz. Sipariş Al pilotunda kurulum emeği nedeniyle 3 aylık taahhüt istiyoruz.</p></details>
+    <details><summary>WhatsApp asistanı yapay zekâ mı?</summary><p>Evet. Yalnızca sizin işletmeniz için girdiğimiz bilgilerden (menü, fiyat, saat, adres) cevap verir. Bilmediği bir şey sorulursa konuşmayı size aktarır. Müşterilere asistanla konuştukları açıkça belirtilir.</p></details>
+    <details><summary>Online ödeme alabilir miyim?</summary><p>Pilot aşamasında ödeme kapıda veya havale ile alınır. Sanal POS entegrasyonu sonraki aşamada.</p></details>
+  </section>
+
+  <footer>
+    Tezgâh Dijital · Bursa<br>
+    İletişim: WhatsApp üzerinden · Kişisel verileriniz yalnızca size hizmet vermek için kullanılır.
+  </footer>
+</div>
+
+<div class="bar">
+  <a class="call" href="tel:+900000000000">Ara</a>
+  <a href="https://wa.me/900000000000?text=Merhaba%2C%20i%C5%9Fletmem%20i%C3%A7in%20bilgi%20almak%20istiyorum">WhatsApp</a>
+</div>
+</body>
+</html>
