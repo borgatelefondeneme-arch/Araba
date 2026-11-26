@@ -168,3 +168,49 @@ Hukuki zemin: Mesafeli Sözleşmeler Yönetmeliği m.15'e göre çabuk bozulan g
 
 ### 11.4 Küçük bir güvence fonu
 Restoran iadeyi geciktirdiğinde müşteriyi bekletmemek için yıllık ücretlerin bir kısmından (ör. **ayda 1.000 TL'ye kadar**) küçük bir fon ayrılabilir. İade bu fondan hemen yapılır, tutar restorandan sonradan tahsil edilir. Fondan yapılan her ödeme `defter.csv`'ye yazılır. Aşama 2'de online ödemeyle bu fona ihtiyaç büyük ölçüde kalkar.
+
+## 12. Lojistik ortaklık: Bursa'nın büyük yerel kurye firmaları (26.11.2026)
+
+Sahibin önerisi: Tek tek kuryeler yerine **büyük bir yerel kurye firmasıyla** ortaklık. Ayrıntılı teklif: `../ortaklik/kurye-firmasi-teklif.md`.
+
+**Neden güçlü bir fikir:**
+1. **Teslimat açığını kapatıyor.** Kendi kuryesi olmayan restoran da Komşu Sofra'ya katılabilir. Bu, modelin en zayıf halkasıydı.
+2. **Hazır satış ağı.** Kurye firmasının zaten anlaşmalı olduğu onlarca restoran var ve hepsini her gün görüyor.
+3. **Çıkarlar aynı yönde.** Komşu Sofra'dan gelen her sipariş kurye firmasına bir paket ücreti demek (piyasada paket başına ~70-100 TL konuşuluyor, doğrulanmadı). Günde 10 sipariş alan tek bir restoran, kurye firmasına ayda **~20-30 bin TL** iş getirebilir. Firmanın asıl kazancı bizim abonelik gelirimiz değil, teslimat hacmi.
+
+**Bu yüzden pazarlık dengesi bizden yana:** Kurye firması bu işten bizden çok daha fazla kazanır. Abonelik gelirimizi onlarla paylaşmamız gerekmez. Onların payı teslimat işi.
+
+### 12.1 Ortaklık yapısı (önerilen)
+| | Kurye firması verir | Komşu Sofra verir |
+|---|---|---|
+| Satış | Kuryeleri ve satış ekibiyle restoranlara tanıtım, restoran başına prim (kendi kuryelerine kendisi öder) | Satış materyali, demo, kurulumun tamamı |
+| Teslimat | Belirlenen bölgelerde Komşu Sofra siparişlerini sabit ve açık bir tarifeyle taşır, süre taahhüdü verir | Siparişi otomatik olarak firmaya iletir ("Kurye çağır" düğmesi) |
+| Tanıtım | Her teslimatta Komşu Sofra QR kartı (sadece Komşu Sofra restoranlarının siparişlerinde) | Sticker, kart, dijital tanıtım |
+| Kazanç | Teslimat ücretleri | Restoran abonelikleri |
+| Ayrıcalık | Bölgesinde **"Resmi Lojistik Ortağı"** unvanı, hedefe bağlı ve süreli münhasırlık | — |
+
+**Hisse (şirket ortaklığı) verilmeli mi?** Başlangıçta **hayır**. Önce 6 aylık bir **iş birliği protokolü**. Hedefler tutarsa (ör. firmanın getirdiği ≥ 25 ödeyen restoran) firmaya hisse alma **opsiyonu** tanınabilir. Hisse sermaye, nakit ya da ölçülmüş katkı karşılığında, kademeli hak edişle verilir. Hisseyi baştan vermek, kontrolü ve markayı daha iş kanıtlanmadan bölüşmek demek.
+
+**Münhasırlık:** Bütün Bursa'yı tek firmaya vermiyoruz. İlçe bazında, 6 ay süreli ve hedefe bağlı (ör. 3 ayda 10 restoran). Hedef tutmazsa münhasırlık düşer.
+
+### 12.2 Abonelik modeli (güncel, bölüm 4 ve 9'un yerine geçer)
+| | |
+|---|---|
+| Site kurulumu | **Ücretsiz** |
+| 1. ay | **Ücretsiz** |
+| 2. aydan itibaren | **990 TL/ay** (otomatik kart çekimi veya her ay başı IBAN) |
+| Yıllık peşin | **9.900 TL** (2 ay bedava) |
+| İlk 20 restoran (Kurucu) | **690 TL/ay**, restoran ayrılmadığı sürece sabit |
+| Taahhüt | Yok. İstediği ay bırakır, alan adı restoranda kalır |
+
+Kurucu Restoran karşılıkları (bölüm 9: sticker, haftalık sipariş sayısı, referans izni) aynen geçerli.
+
+**6. ay hesabı:** 20 kurucu × 690 = 13.800 + 20 normal × 990 = 19.800 → **33.600 TL/ay**. Hedef 40 ödeyen restoran. Bir kurye firması 50-200 restoranla çalışıyorsa, bunun %20-30'unu kazanmak yeter.
+
+**Risk:** Aylık modelde bırakma kolay. Önlem: her ay restorana "Bu ay Komşu Sofra'dan X sipariş geldi, platform komisyonuna göre ~Y TL tasarruf ettiniz" raporu. Rapor iyi değilse zaten kalmamaları gerekir.
+
+### 12.3 Riskler
+- **Kurye firması fikri kopyalayıp kendisi yapabilir.** Önlem: restoran sözleşmeleri, alan adları ve yazılım Komşu Sofra'da. Protokole gizlilik ve rekabet etmeme maddesi. Hız: pilot 4 haftada canlı.
+- **Tek firmaya bağımlılık.** Münhasırlık ilçe bazlı ve süreli. 2. bir firma yedekte.
+- **Teslimat kalitesi markamızı etkiler.** Güvence kurallarındaki (bölüm 11) "geç teslimat" ve "hiç gelmedi" durumlarında kurye firması kusurluysa bedeli kurye firması öder. Protokole yazılır.
+- **Veri:** Müşteri adres ve telefonu teslimat için kurye firmasıyla paylaşılır. KVKK'ya göre amaçla sınırlı paylaşım; firma bu veriyi kendi pazarlamasında kullanamaz.
