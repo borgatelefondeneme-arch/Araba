@@ -1,7 +1,9 @@
-# Fikir: Bursa Sofra (çalışma adı)
+# Komşu Sofra
+
+> **Marka kararı (26.11.2026):** Tüketiciye görünen marka **Komşu Sofra** (komsusofra.com, alınmadan önce TÜRKPATENT kontrolü yapılacak). Şirketin resmi adı Tezgâh Dijital. Aşağıdaki eski "Bursa Sofra / komsusofra.com" ifadeleri bu marka ile okunmalı.
 
 Bursa'ya özel, **komisyonsuz** yemek sipariş ağı. Tezgâh Dijital'in "Sipariş Al" paketinin büyütülmüş hâli.
-Durum: **taslak, sahibin onayını bekliyor** (26.11.2026)
+Durum: **isim onaylandı, demo bekliyor** (26.11.2026)
 
 ## 1. Tek cümlede
 Her restorana kendi adıyla bir sipariş sitesi kuruyoruz. Siparişler restoranın kendi WhatsApp'ına düşüyor. Tüm restoranlar ortak bir Bursa rehberinde de listeleniyor. Restorandan komisyon değil, **kurulum + yıllık sabit ücret** alıyoruz.
@@ -9,10 +11,10 @@ Her restorana kendi adıyla bir sipariş sitesi kuruyoruz. Siparişler restoran�
 ## 2. Yapı (ana gemi + filo)
 
 ```
-bursasofra.com                 ← ana gemi: Bursa restoran rehberi, arama, kampanyalar
- ├─ murat.bursasofra.com       ← her restoranın sipariş sayfası (ücretsiz alt alan adı)
+komsusofra.com                 ← ana gemi: Bursa restoran rehberi, arama, kampanyalar
+ ├─ murat.komsusofra.com       ← her restoranın sipariş sayfası (ücretsiz alt alan adı)
  ├─ ahmetkebap.com             ← isteyen restoranın kendi alan adı, aynı sayfayı gösterir
- └─ panel.bursasofra.com       ← restoran menü ve fiyatlarını buradan günceller
+ └─ panel.komsusofra.com       ← restoran menü ve fiyatlarını buradan günceller
 ```
 
 - Restoranın kendi alan adı (`ahmetkebap.com`) **yönlendirme değil**, aynı sayfayı kendi adıyla gösterir (DNS/CNAME). Müşteri adres çubuğunda restoranın adını görür, marka restoranda kalır.
@@ -57,7 +59,7 @@ Yemeksepeti, Trendyol Yemek, Getir ve Migros Yemek'in reklam bütçesiyle tüket
 - Telefonla sipariş veren müşteriye: "WhatsApp'tan menü linki gönderelim mi?"
 - Restoranın Google profilindeki "Sipariş ver" bağlantısı
 
-Restoran sayısı arttıkça `bursasofra.com` rehberi kendiliğinden değer kazanır. Rehberin tanıtımı **Aşama 2 işidir**, ilk iş değildir.
+Restoran sayısı arttıkça `komsusofra.com` rehberi kendiliğinden değer kazanır. Rehberin tanıtımı **Aşama 2 işidir**, ilk iş değildir.
 
 ## 6. Tanıtım kanalları: ne yapılabilir, ne yapılmaz
 
@@ -82,7 +84,7 @@ Restoran sayısı arttıkça `bursasofra.com` rehberi kendiliğinden değer kaza
 - **KVKK:** müşterinin adı, adresi ve telefonu restorana gider. Aydınlatma metni gerekir; veri sorumlusu restoran, biz veri işleyen olabiliriz.
 - **"Daha ucuz" iddiası:** Restoranın platform sözleşmesinde fiyat eşitliği şartı olup olmadığına her restoran kendisi bakmalı. Rekabet Kurulu 2016'da Yemeksepeti'ne bu tür kısıtlamalar nedeniyle ceza vermişti, ama güncel sözleşmeleri bilmiyoruz. Biz bu iddiayı reklamlarımızda genel olarak kullanmayız; indirimi restoran kendisi belirler.
 - **Platform poşetine kart koymak:** Platform sözleşmesine aykırı olabilir. Restoranın kontrol etmesi gerekir.
-- **Alan adı:** `bursayemek.com` alınmış ve park edilmiş (satılık olabilir, pahalı olabilir). `bursasofra.com` ve `bursapaket.com` boş görünüyor (26.11.2026).
+- **Alan adı:** `bursayemek.com` alınmış ve park edilmiş (satılık olabilir, pahalı olabilir). `komsusofra.com` ve `bursapaket.com` boş görünüyor (26.11.2026).
 - Marka tescili (TÜRKPATENT).
 
 ## 8. Yol haritası
@@ -127,3 +129,42 @@ Sahibin önerisi (26.11.2026): İlk katılanlara kurulum ve 3 ay kullanım ücre
 - Bizim farkımız hizmet olmalı: menüyü biz gireriz, sticker ve poşet kartını biz basarız, restoranın WhatsApp'ını biz bağlarız, sorun olursa Bursa'da yerelde biz çözeriz. Restoranın emeği sıfır.
 - Satış konuşmasında bu rakip sorulursa saklamıyoruz: "İsterseniz kendiniz ücretsiz kurabilirsiniz; biz anahtar teslim yapıyor ve müşterinizi direkt siparişe taşımanıza yardım ediyoruz."
 - Ücretsiz rakip, kurulum ücretini savunmayı zorlaştırır. Kurucu Restoran programındaki ücretsiz kurulum bu yüzden daha da önemli. Pilot verisiyle fiyatlar yeniden değerlendirilecek.
+
+## 11. Ödeme, şikâyet ve iade yönetimi
+
+**Sorun:** Ödemeyi tamamen restorana bırakırsak, müşteri memnun kalmadığında devreye girebileceğimiz bir araç olmaz. Kötü bir deneyim de Komşu Sofra markasına yazılır.
+
+**İlke:** Şikâyeti **biz yönetiriz**, parayı **lisanslı bir ödeme kuruluşu** tutar, iadeyi **restoran öder**. Müşteri tek bir muhatap görür: Komşu Sofra.
+
+### 11.1 Komşu Sofra Güvencesi (müşteriye görünen kurallar)
+| Durum | Kanıt | Çözüm |
+|---|---|---|
+| Eksik ürün | Teslimden sonra 2 saat içinde fotoğraf | Eksik ürün bedeli iade |
+| Yanlış sipariş | Fotoğraf | Ürün yeniden gönderilir veya bedeli iade |
+| Çok geç teslimat (taahhüt edilen sürenin 45 dk fazlası) | Sipariş saati kaydı | Sonraki siparişte restoran indirimi veya kısmi iade |
+| Bozuk veya sağlığa uygun olmayan ürün | Fotoğraf | Tam iade. Restoran incelemeye alınır |
+| Hiç gelmedi | — | Tam iade |
+| Lezzeti beğenmedim | — | İade yok; geri bildirim restorana iletilir |
+
+Hukuki zemin: Mesafeli Sözleşmeler Yönetmeliği m.15'e göre çabuk bozulan gıdada **cayma hakkı yok**, yani "vazgeçtim" iadesi yok. Ama ürün **ayıplıysa** (eksik, yanlış, bozuk) 6502 sayılı Kanun'un ayıplı mal hükümleri geçerli ve sorumlu satıcı olan restoran. Güvence kuralları bu ayrıma göre kuruldu (avukata teyit ettirilecek).
+
+### 11.2 Şikâyet akışı
+1. Her siparişin sonunda ve onay mesajında **"Sorun bildir"** bağlantısı olur. Şikâyet restorana değil **Komşu Sofra destek hattına** gelir.
+2. Ben (Claude) kaydı açarım, fotoğrafı ve güvence tablosunu karşılaştırır, çözüm önerisi hazırlarım. Restorana ve müşteriye mesaj taslakları hazırlanır.
+3. Restoranın 24 saat içinde cevap verme yükümlülüğü var (Kurucu Restoran formuna ve restoran sözleşmesine eklenir).
+4. Restoran haklı bir şikâyette iadeyi reddederse karar Komşu Sofra'nındır. Ödeme online yapılmışsa iade ödeme kuruluşu üzerinden yapılır (11.3). Kapıda ödemede restoran iade etmezse uyarı alır.
+5. **Yaptırım:** 30 günde 3 haklı şikâyet → uyarı; ikinci uyarıda rehberden geçici kaldırma; sonraki adımda sözleşme feshi. Restoranın en büyük kaybı rehberden ve QR sistemden çıkmak, elimizdeki koz bu.
+6. Sadece gerçekten sipariş vermiş müşteriler restorana puan ve yorum verebilir.
+
+### 11.3 Ödeme seçenekleri (aşamalı)
+| Aşama | Ödeme | İade nasıl yapılır |
+|---|---|---|
+| **Pilot** | Kapıda nakit veya kart (restoranın POS'u) | Restoran nakit iade eder, POS'tan iptal/iade yapar ya da sonraki sipariş için indirim kodu verir. Takibi biz yaparız |
+| **Aşama 2** | **Online kart ödemesi**, lisanslı ödeme kuruluşunun pazaryeri altyapısıyla (iyzico Pazaryeri, PayTR, Param vb.). Her restoran "alt üye işyeri" olur | Para önce ödeme kuruluşunda bekler, teslimat onaylanınca restorana aktarılır. Şikâyette iade **beklemedeki paradan** yapılır, restorana sormaya gerek kalmaz |
+
+**Neden parayı kendi hesabımızda tutmuyoruz?** Başkası adına para toplayıp dağıtmak 6493 sayılı Kanun'a göre TCMB lisansı gerektiren bir ödeme hizmeti. Lisanslı kuruluşun pazaryeri ürünü bu yükü üstleniyor.
+
+**Maliyet:** Kart işlem kesintisi ödeme kuruluşuna gider. Bir kaynağa göre iyzico özel tekliflerde %2,49 + 0,25 TL'den başlıyor (resmi değil, teyit edilecek); iade işlemlerinden ücret alınmadığını belirtiyor. Bu kesinti **bizim komisyonumuz değil**. Restoran nakit veya POS seçeneğini de sunmaya devam edebilir. Pazarlamada "Komşu Sofra komisyon almaz; kart ile ödemede yalnızca banka/ödeme kuruluşu kesintisi uygulanır" diye açık yazılır.
+
+### 11.4 Küçük bir güvence fonu
+Restoran iadeyi geciktirdiğinde müşteriyi bekletmemek için yıllık ücretlerin bir kısmından (ör. **ayda 1.000 TL'ye kadar**) küçük bir fon ayrılabilir. İade bu fondan hemen yapılır, tutar restorandan sonradan tahsil edilir. Fondan yapılan her ödeme `defter.csv`'ye yazılır. Aşama 2'de online ödemeyle bu fona ihtiyaç büyük ölçüde kalkar.
