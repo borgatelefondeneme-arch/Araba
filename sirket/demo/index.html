@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Köşebaşı Kahve · Örnek Site</title>
+<meta name="description" content="Bursa'daki küçük işletmeler için örnek tek sayfalık web sitesi.">
+<style>
+  :root{
+    --bg:#faf6f1; --card:#ffffff; --ink:#2a211b; --muted:#7a6a5e;
+    --accent:#b5562b; --accent-ink:#fff; --line:#ece3d9; --green:#25a35a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#1b1613; --card:#251e1a; --ink:#f3ebe4; --muted:#b3a497; --line:#3a2f28; --accent:#e07a45; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;padding-bottom:84px}
+  .demo{background:#222;color:#fff;font-size:13px;text-align:center;padding:6px 12px}
+  header{padding:56px 16px 40px;text-align:center;background:
+    radial-gradient(circle at 20% 10%,rgba(181,86,43,.25),transparent 55%),
+    radial-gradient(circle at 90% 80%,rgba(181,86,43,.15),transparent 50%)}
+  .logo{font-size:56px;line-height:1}
+  h1{font-size:clamp(30px,8vw,46px);margin:12px 0 6px;letter-spacing:-.5px}
+  .tag{color:var(--muted);margin:0 0 20px}
+  .open{display:inline-flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--green)}
+  main{max-width:720px;margin:0 auto;padding:0 16px}
+  section{margin:28px 0}
+  h2{font-size:20px;margin:0 0 12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+  .menu{display:grid;gap:10px}
+  .item{display:flex;justify-content:space-between;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:8px}
+  .item:last-child{border-bottom:0;padding-bottom:0}
+  .item small{display:block;color:var(--muted)}
+  .price{font-weight:700;white-space:nowrap}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .ph{aspect-ratio:4/3;border-radius:14px;display:grid;place-items:center;font-size:42px;
+      background:linear-gradient(135deg,#d9a57f,#8a4a2a)}
+  .ph:nth-child(2){background:linear-gradient(135deg,#c9b38d,#6d5a3b)}
+  .ph:nth-child(3){background:linear-gradient(135deg,#e2b9a0,#a0563a)}
+  table{width:100%;border-collapse:collapse}
+  td{padding:6px 0;border-bottom:1px solid var(--line)}
+  td:last-child{text-align:right;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .bar{position:fixed;left:0;right:0;bottom:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;
+       padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:var(--card);border-top:1px solid var(--line)}
+  .bar a{display:flex;flex-direction:column;align-items:center;gap:2px;text-decoration:none;color:var(--accent-ink);
+         background:var(--accent);border-radius:12px;padding:8px 4px;font-weight:600;font-size:14px}
+  .bar a.wa{background:var(--green)}
+  .bar span{font-size:20px;line-height:1}
+  footer{text-align:center;color:var(--muted);font-size:13px;margin:40px 0 20px}
+</style>
+</head>
+<body>
+<div class="demo">Bu bir <b>örnek</b> sitedir. İşletmeniz için hazırlanmış hâli böyle görünür.</div>
+
+<header>
+  <div class="logo">☕</div>
+  <h1>Köşebaşı Kahve</h1>
+  <p class="tag">Taze demlenmiş çay, ev yapımı tatlılar ve sıcak bir köşe · Nilüfer, Bursa</p>
+  <div class="open"><span class="dot"></span><span id="status">Bugün 08:00 – 23:00 açık</span></div>
+</header>
+
+<main>
+  <section>
+    <h2>Menüden seçmeler</h2>
+    <div class="card menu">
+      <div class="item"><div>Türk kahvesi<small>Lokum ile</small></div><div class="price">— TL</div></div>
+      <div class="item"><div>Demleme çay<small>İnce belli bardakta</small></div><div class="price">— TL</div></div>
+      <div class="item"><div>Kestane şekerli cheesecake<small>Ev yapımı</small></div><div class="price">— TL</div></div>
+      <div class="item"><div>Serpme kahvaltı (2 kişilik)<small>Hafta sonu 09:00 – 13:00</small></div><div class="price">— TL</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Fotoğraflar</h2>
+    <div class="grid">
+      <div class="ph">🍰</div><div class="ph">🫖</div><div class="ph">🥐</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Çalışma saatleri</h2>
+    <div class="card">
+      <table>
+        <tr><td>Pazartesi – Cuma</td><td>08:00 – 23:00</td></tr>
+        <tr><td>Cumartesi</td><td>09:00 – 00:00</td></tr>
+        <tr><td>Pazar</td><td>09:00 – 22:00</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Adres</h2>
+    <div class="card">Örnek Mah. Örnek Cad. No: 1, Nilüfer / Bursa</div>
+  </section>
+
+  <footer>Köşebaşı Kahve · Örnek site</footer>
+</main>
+
+<nav class="bar" aria-label="Hızlı iletişim">
+  <a href="tel:+900000000000"><span>📞</span>Ara</a>
+  <a class="wa" href="https://wa.me/900000000000"><span>💬</span>WhatsApp</a>
+  <a href="https://www.google.com/maps/search/?api=1&query=Nil%C3%BCfer+Bursa"><span>📍</span>Yol tarifi</a>
+</nav>
+</body>
+</html>
